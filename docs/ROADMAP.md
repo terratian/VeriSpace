@@ -10,8 +10,9 @@
 - [x] Capability links (signed, time-windowed, property/room scoped) and link creation API
 - [x] Ledger append/verify API with role-based authorization
 - [ ] SMS/email delivery of links (Twilio/Resend)
-- [ ] Manager sign-in (Supabase OAuth) and multi-property dashboard
-- [ ] Row Level Security policies
+- [x] Manager sign-in (Google OAuth + email link via Supabase) and a basic dashboard: list/add properties and rooms
+- [x] Row Level Security policies (owner-scoped; ledger read-only for owners), tested on Postgres 16
+- [ ] Dashboard: reservations, create crew/guest links, view and verify a room's ledger
 
 ## Phase 3 — Spatial & Vision Engine (weeks 3–4)
 - Three.js / WebGPU room viewport

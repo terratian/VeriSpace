@@ -49,5 +49,5 @@ seq 1 60 | xargs -P 20 -I{} $P -c "insert into room_state_ledger(room_id,actor_r
 check "60 concurrent inserts: chain verifies" "t|60" "$($P -c "select ok,checked from verify_room_chain('$R2')")"
 check "60 concurrent inserts: no duplicate prev_hash" "60" "$($P -c "select count(distinct coalesce(prev_hash,'root')) from room_state_ledger where room_id='$R2'")"
 
-$ADMIN -c "drop database $DB"
+$ADMIN -c "drop database $DB" || { echo "FAIL  could not drop $DB"; fail=1; }
 [ $fail -eq 0 ] && echo "ALL PASSED" || { echo "FAILURES"; exit 1; }
