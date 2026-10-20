@@ -10,5 +10,5 @@ export const env = {
   get publishableKey() { return required("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"); },
   get serviceRoleKey() { return required("SUPABASE_SERVICE_ROLE_KEY"); },
   get capabilitySecret() { return required("CAPABILITY_SECRET"); },
-  get appOrigin() { return process.env.APP_ORIGIN ?? "http://localhost:3000"; },
+  get appOrigin(): string | undefined { return process.env.APP_ORIGIN; },
 };

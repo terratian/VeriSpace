@@ -1,0 +1,119 @@
+/** Pure logic for the crew and guest capture screens. */
+
+export interface Shot {
+  blob: Blob;
+  /** SHA-256 (hex) of exactly the bytes in `blob`. */
+  sha256: string;
+  width: number | null;
+  height: number | null;
+  /** Object URL for previews. The owner must revoke it. */
+  url: string;
+  /** "camera" = grabbed from the live preview; "file" = handed over by the phone's camera app. */
+  source: "camera" | "file";
+}
+
+export const MAX_EDGE = 2048;
+export const JPEG_QUALITY = 0.9;
+
+/** Shrink to fit `maxEdge` on the long side, keeping the aspect ratio. Never enlarges. */
+export function scaleToFit(width: number, height: number, maxEdge = MAX_EDGE): { width: number; height: number } {
+  const longest = Math.max(width, height);
+  if (longest <= maxEdge) return { width, height };
+  const k = maxEdge / longest;
+  return { width: Math.round(width * k), height: Math.round(height * k) };
+}
+
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export interface RoomProgress {
+  started: boolean;
+  finished: boolean;
+  photos: number;
+  damage: number;
+}
+export type ProgressMap = Record<string, RoomProgress>;
+export const EMPTY_PROGRESS: RoomProgress = { started: false, finished: false, photos: 0, damage: 0 };
+
+export type CaptureAction = "start" | "photo" | "damage" | "finish";
+
+/** Crew progress is per room; guest progress is per room and per mode (arrival or departure). */
+export function progressKey(role: "crew" | "guest", roomId: string, mode?: "arrival" | "departure"): string {
+  return role === "guest" ? `${roomId}:${mode ?? "arrival"}` : roomId;
+}
+
+export function applyAction(map: ProgressMap, key: string, action: CaptureAction): ProgressMap {
+  const current = map[key] ?? EMPTY_PROGRESS;
+  const next: RoomProgress = { ...current };
+  if (action === "start") next.started = true;
+  if (action === "photo") next.photos += 1;
+  if (action === "damage") next.damage += 1;
+  if (action === "finish") next.finished = true;
+  return { ...map, [key]: next };
+}
+
+/** A room can be finished once it has been started, has a photo, and isn't already finished. */
+export function canFinish(p: RoomProgress): boolean {
+  return p.started && p.photos > 0 && !p.finished;
+}
+
+export function crewStatus(p: RoomProgress): { label: string; tone: "neutral" | "amber" | "mint" } {
+  if (p.finished) return { label: "Done", tone: "mint" };
+  if (p.started || p.photos > 0) return { label: "In progress", tone: "amber" };
+  return { label: "Not started", tone: "neutral" };
+}
+
+export function guestStatus(p: RoomProgress): { label: string; tone: "neutral" | "mint" } {
+  return p.photos > 0
+    ? { label: `${p.photos} ${p.photos === 1 ? "photo" : "photos"}`, tone: "mint" }
+    : { label: "No photos yet", tone: "neutral" };
+}
+
+/** Read saved progress defensively: anything malformed is dropped rather than trusted. */
+export function parseProgress(raw: string | null): ProgressMap {
+  if (!raw) return {};
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!data || typeof data !== "object" || Array.isArray(data)) return {};
+    const out: ProgressMap = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (!value || typeof value !== "object") continue;
+      const v = value as Record<string, unknown>;
+      const count = (n: unknown) => (typeof n === "number" && Number.isInteger(n) && n >= 0 && n < 10_000 ? n : 0);
+      out[key] = { started: v.started === true, finished: v.finished === true, photos: count(v.photos), damage: count(v.damage) };
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export interface Intent {
+  eventType: string;
+  title: string;
+  noteLabel: string;
+  noteRequired: boolean;
+  saveLabel: string;
+}
+
+export const INTENTS = {
+  crewPhoto: { eventType: "photo_verified", title: "Verification photo", noteLabel: "Note (optional)", noteRequired: false, saveLabel: "Record photo" },
+  crewDamage: { eventType: "damage_report", title: "Report damage", noteLabel: "What is damaged?", noteRequired: true, saveLabel: "Record damage" },
+  guestArrival: {
+    eventType: "guest_arrival_scan",
+    title: "Arrival photo",
+    noteLabel: "Note (optional), for example a mark that was already there",
+    noteRequired: false,
+    saveLabel: "Record photo",
+  },
+  guestDeparture: {
+    eventType: "guest_checkout_scan",
+    title: "Departure photo",
+    noteLabel: "Note (optional)",
+    noteRequired: false,
+    saveLabel: "Record photo",
+  },
+} satisfies Record<string, Intent>;

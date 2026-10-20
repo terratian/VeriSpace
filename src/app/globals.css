@@ -1,15 +1,72 @@
 @import "tailwindcss";
 
 @theme {
-  --color-obsidian: #0B0C10;
-  --color-panel: #11141b;
-  --color-slate-brand: #1F2833;
-  --color-ash: #C5C6C7;
-  --color-mint: #66FCF1;
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-obsidian: #0b0c10;
+  --color-graphite: #12151c;
+  --color-panel: #12151c;
+  --color-slate-brand: #1f2833;
+  --color-edge: #252d39;
   --color-line: #1c3a3f;
+  --color-ash: #c5c6c7;
+  --color-mute: #8e98a5;
+  --color-mint: #66fcf1;
+  --color-amber: #f2b544;
+  --color-flag: #ff6b6b;
+  --color-sky: #7ab8ff;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--color-obsidian);
 }
 
 body {
   background: var(--color-obsidian);
   color: var(--color-ash);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3 {
+  color: #fff;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-mint);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: rgb(102 252 241 / 0.28);
+}
+
+/* Camera shutter: a brief white flash that answers the tap. */
+@keyframes shutter {
+  from {
+    opacity: 0.9;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
