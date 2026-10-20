@@ -14,6 +14,8 @@ export interface Shot {
 
 export const MAX_EDGE = 2048;
 export const JPEG_QUALITY = 0.9;
+/** Largest photo the server accepts. Kept under common 4.5 MB request limits. */
+export const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 /** Shrink to fit `maxEdge` on the long side, keeping the aspect ratio. Never enlarges. */
 export function scaleToFit(width: number, height: number, maxEdge = MAX_EDGE): { width: number; height: number } {

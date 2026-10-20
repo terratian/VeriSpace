@@ -2,7 +2,8 @@
 
 import { Camera, ImageUp, RefreshCw, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { JPEG_QUALITY, MAX_EDGE, scaleToFit, type Shot } from "@/lib/capture";
+import type { Shot } from "@/lib/capture";
+import { encodeJpeg } from "@/lib/encode";
 import { hashFrame } from "@/lib/frameHasher";
 import { button } from "@/components/ui/styles";
 
@@ -26,6 +27,7 @@ export function CameraSheet({ title, onShot, onClose }: { title: string; onShot:
   const [flash, setFlash] = useState(false);
   const [busy, setBusy] = useState(false);
   const [multiple, setMultiple] = useState(false);
+  const [problem, setProblem] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -87,36 +89,36 @@ export function CameraSheet({ title, onShot, onClose }: { title: string; onShot:
     setFlash(true);
     setTimeout(() => setFlash(false), 180);
 
-    const { width, height } = scaleToFit(video.videoWidth, video.videoHeight, MAX_EDGE);
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext("2d")?.drawImage(video, 0, 0, width, height);
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
-    if (!blob) {
+    setProblem("");
+    try {
+      const { blob, width, height } = await encodeJpeg(video, video.videoWidth, video.videoHeight);
+      // Hash the exact bytes that will be uploaded and recorded.
+      const sha256 = await hashFrame(blob);
+      onShot({ blob, sha256, width, height, url: URL.createObjectURL(blob), source: "camera" });
+    } catch (err) {
+      setProblem(err instanceof Error ? err.message : "The photo couldn't be captured. Try again.");
       setBusy(false);
-      return;
     }
-    // Hash the exact bytes that will be recorded.
-    const sha256 = await hashFrame(blob);
-    onShot({ blob, sha256, width, height, url: URL.createObjectURL(blob), source: "camera" });
   }
 
+  /** A photo from the phone's camera app: decode it, then encode it the same way as a live frame. */
   async function onFile(file: File | undefined) {
-    if (!file) return;
+    if (!file || busy) return;
     setBusy(true);
-    const sha256 = await hashFrame(file);
-    let width: number | null = null;
-    let height: number | null = null;
+    setProblem("");
     try {
       const bitmap = await createImageBitmap(file);
-      width = bitmap.width;
-      height = bitmap.height;
-      bitmap.close();
-    } catch {
-      // Dimensions are only descriptive metadata.
+      try {
+        const { blob, width, height } = await encodeJpeg(bitmap, bitmap.width, bitmap.height);
+        const sha256 = await hashFrame(blob);
+        onShot({ blob, sha256, width, height, url: URL.createObjectURL(blob), source: "file" });
+      } finally {
+        bitmap.close();
+      }
+    } catch (err) {
+      setProblem(err instanceof Error && err.message.includes("large") ? err.message : "That photo couldn't be read. Try taking it again.");
+      setBusy(false);
     }
-    onShot({ blob: file, sha256, width, height, url: URL.createObjectURL(file), source: "file" });
   }
 
   const fileInput = (
@@ -167,6 +169,12 @@ export function CameraSheet({ title, onShot, onClose }: { title: string; onShot:
         {phase === "starting" && (
           <p role="status" className="absolute inset-0 flex items-center justify-center text-mute">
             Opening camera…
+          </p>
+        )}
+
+        {problem && (
+          <p role="alert" className="absolute inset-x-4 bottom-4 rounded-lg border border-flag/40 bg-black/80 px-3 py-2 text-sm text-flag">
+            {problem}
           </p>
         )}
 
