@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { addProperty, addRoom } from "./actions";
 
@@ -32,7 +33,11 @@ export default async function Dashboard() {
     <main className="mx-auto max-w-3xl px-6 py-12">
       <header className="mb-10 flex items-center justify-between">
         <div>
-          <p className="font-mono text-xs uppercase tracking-widest text-mint">VeriSpace</p>
+          <div className="flex items-center gap-3">
+            <p className="font-mono text-xs uppercase tracking-widest text-mint">VeriSpace</p>
+            <span className="text-ash/40">/</span>
+            <Link href="/" className="text-xs text-cyan-400 hover:underline font-mono">Home</Link>
+          </div>
           <h1 className="text-2xl font-black text-white">Your properties</h1>
         </div>
         <form action="/auth/signout" method="post">
