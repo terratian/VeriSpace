@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriSpace — Real Spaces. Verified On-Chain.</title>
+<style>
+  :root {
+    --obsidian: #0B0C10;
+    --panel: #11141b;
+    --slate: #1F2833;
+    --gray: #C5C6C7;
+    --mint: #66FCF1;
+    --line: #1c3a3f;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--obsidian); color: var(--gray); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  nav { position: sticky; top: 0; z-index: 10; background: rgba(11,12,16,.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .logo { font-weight: 800; font-size: 1.25rem; color: #fff; letter-spacing: .04em; display: flex; align-items: center; gap: 10px; }
+  .logo b { color: var(--mint); }
+  .links { display: flex; gap: 28px; font-size: .9rem; }
+  .links a:hover { color: var(--mint); }
+  @media (max-width: 700px) { .links { display: none; } }
+  .btn { display: inline-block; background: var(--mint); color: var(--obsidian); font-weight: 700; padding: 12px 24px; border-radius: 12px; box-shadow: 0 0 24px rgba(102,252,241,.35); }
+  .btn.ghost { background: var(--slate); color: #fff; box-shadow: none; border: 1px solid var(--line); }
+  header.hero { text-align: center; padding: 80px 0 40px; }
+  .pill { display: inline-block; font-size: .75rem; letter-spacing: .15em; text-transform: uppercase; color: var(--mint); border: 1px solid rgba(102,252,241,.3); background: rgba(102,252,241,.07); padding: 6px 16px; border-radius: 999px; margin-bottom: 24px; }
+  h1 { color: #fff; font-size: clamp(2rem, 6vw, 3.75rem); line-height: 1.1; font-weight: 900; letter-spacing: -.02em; margin-bottom: 20px; }
+  h1 span, h2 span { color: var(--mint); }
+  .sub { max-width: 680px; margin: 0 auto 32px; font-size: 1.1rem; color: rgba(197,198,199,.85); }
+  .cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  .showcase { margin: 48px auto 0; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); padding: 16px; box-shadow: 0 0 80px rgba(102,252,241,.08); }
+  .showcase svg { width: 100%; height: auto; display: block; border-radius: 14px; background: #08090d; }
+  section { padding: 72px 0; border-top: 1px solid rgba(28,58,63,.6); }
+  .eyebrow { font-family: ui-monospace, Menlo, monospace; font-size: .75rem; letter-spacing: .15em; text-transform: uppercase; color: var(--mint); }
+  h2 { color: #fff; font-size: clamp(1.6rem, 4vw, 2.25rem); margin: 8px 0 12px; }
+  .center { text-align: center; }
+  .center p.lead { max-width: 640px; margin: 0 auto 40px; }
+  .grid3 { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .grid2 { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 28px; }
+  .card:hover { border-color: rgba(102,252,241,.45); }
+  .card h3 { color: #fff; margin-bottom: 8px; font-size: 1.1rem; }
+  .card p { font-size: .92rem; color: rgba(197,198,199,.75); }
+  .icon { width: 44px; height: 44px; border-radius: 12px; border: 1px solid rgba(102,252,241,.3); background: rgba(102,252,241,.08); display: grid; place-items: center; margin-bottom: 16px; color: var(--mint); font-size: 1.2rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { padding: 14px 18px; text-align: left; border-bottom: 1px solid rgba(28,58,63,.6); }
+  th { background: rgba(28,58,63,.4); color: #fff; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; }
+  td.r, th.r { text-align: right; font-family: ui-monospace, Menlo, monospace; color: var(--mint); }
+  tr.total td { background: rgba(31,40,51,.6); color: #fff; font-weight: 700; }
+  .tablewrap { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; overflow-x: auto; }
+  .bad { color: #f87171; font-family: ui-monospace, Menlo, monospace; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(28,58,63,.6); font-size: .92rem; }
+  .row.big { font-weight: 700; color: #fff; border: none; font-size: 1.05rem; }
+  .note { margin-top: 18px; font-size: .78rem; padding: 12px 14px; border-radius: 10px; }
+  .note.red { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.2); color: #fecaca; }
+  .note.mint { background: rgba(102,252,241,.07); border: 1px solid rgba(102,252,241,.2); color: rgba(102,252,241,.9); }
+  .card.glow { border-color: rgba(102,252,241,.5); box-shadow: 0 0 40px rgba(102,252,241,.1); }
+  .timeline { max-width: 720px; margin: 0 auto; }
+  .step { display: flex; gap: 20px; padding-bottom: 28px; }
+  .dot { flex: none; width: 16px; height: 16px; margin-top: 6px; border-radius: 50%; border: 2px solid var(--mint); background: var(--slate); }
+  .step.now .dot { background: var(--mint); box-shadow: 0 0 12px rgba(102,252,241,.8); }
+  .step h4 { color: #fff; }
+  .step small { color: var(--mint); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+  .step p { font-size: .9rem; color: rgba(197,198,199,.75); }
+  .calc { text-align: center; }
+  .calc input[type=range] { width: 100%; max-width: 420px; accent-color: var(--mint); }
+  .calc .out { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-top: 24px; }
+  .calc .out div { background: var(--obsidian); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .calc .out b { display: block; color: var(--mint); font-size: 1.6rem; font-family: ui-monospace, Menlo, monospace; }
+  .calc .out span { font-size: .75rem; text-transform: uppercase; letter-spacing: .1em; }
+  footer { border-top: 1px solid var(--line); padding: 40px 0; text-align: center; font-size: .78rem; color: rgba(197,198,199,.5); font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a href="#top" class="logo"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="#66FCF1" stroke-width="1.6"><path d="M14 2 25 8v12l-11 6L3 20V8z"/><path d="M3 8l11 6 11-6M14 14v12"/></svg>Veri<b>Space</b></a>
+    <div class="links">
+      <a href="#platform">Platform</a>
+      <a href="#features">Pillars</a>
+      <a href="#economics">Economics</a>
+      <a href="#budget">Operating Budget</a>
+      <a href="#roadmap">Roadmap</a>
+    </div>
+    <a href="#platform" class="btn" style="padding:9px 18px;font-size:.8rem">Explore Prototype</a>
+  </div>
+</nav>
+
+<header class="hero wrap" id="top">
+  <div class="pill">Cryptographic Airbnb &amp; VRBO Protection</div>
+  <h1>The Trustless Spatial Ledger for <span>Short-Term Rentals</span>.</h1>
+  <p class="sub">Eliminate fraudulent damage claims and operational guesswork with immutable 3D room state tracking, verified cleaning checklists, and tamper-proof guest check-in evidence.</p>
+  <div class="cta">
+    <a href="#platform" class="btn">See the Platform</a>
+    <a href="#economics" class="btn ghost">View the Economics</a>
+  </div>
+
+  <div class="showcase" id="platform">
+    <svg viewBox="0 0 900 500" role="img" aria-label="Isometric 3D wireframe of a living room with coordinate pins">
+      <defs>
+        <pattern id="g" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="#1c3a3f" stroke-opacity=".35"/></pattern>
+        <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect width="900" height="500" fill="url(#g)"/>
+      <g stroke="#66FCF1" fill="none" stroke-width="1.6" filter="url(#glow)">
+        <path d="M450 90 700 215 700 385 450 460 200 385 200 215z" stroke-opacity=".7"/>
+        <path d="M450 90 450 270M200 215 450 270 700 215M450 270 450 460"/>
+        <path d="M450 270 200 385M450 270 700 385" stroke-opacity=".35"/>
+        <!-- sofa -->
+        <path d="M280 340 360 380 450 340 370 300z" stroke-opacity=".9"/>
+        <path d="M280 340 280 318 370 278 370 300M370 278 450 318 450 340" stroke-opacity=".9"/>
+        <!-- table -->
+        <path d="M520 370 590 400 650 370 580 340z" stroke-opacity=".9"/>
+        <!-- window -->
+        <path d="M520 205 640 260 640 330 520 275z" stroke-opacity=".5"/>
+      </g>
+      <g font-family="ui-monospace,Menlo,monospace" font-size="12" fill="#66FCF1">
+        <g><circle cx="365" cy="300" r="6" fill="#66FCF1"><animate attributeName="r" values="5;9;5" dur="2s" repeatCount="indefinite"/></circle>
+          <line x1="365" y1="300" x2="300" y2="170" stroke="#66FCF1" stroke-opacity=".5"/>
+          <rect x="215" y="148" width="170" height="26" rx="6" fill="#0B0C10" stroke="#66FCF1" stroke-opacity=".5"/>
+          <text x="226" y="165">X 7.105 · Y 5.221 · Z 0.000</text></g>
+        <g><circle cx="580" cy="340" r="6" fill="#66FCF1"><animate attributeName="r" values="5;9;5" dur="2s" begin=".6s" repeatCount="indefinite"/></circle>
+          <line x1="580" y1="340" x2="700" y2="440" stroke="#66FCF1" stroke-opacity=".5"/>
+          <rect x="650" y="440" width="190" height="26" rx="6" fill="#0B0C10" stroke="#66FCF1" stroke-opacity=".5"/>
+          <text x="661" y="457">X 14.892 · Y 3.776 · Z 0.000</text></g>
+        <g><circle cx="580" cy="240" r="6" fill="#66FCF1"><animate attributeName="r" values="5;9;5" dur="2s" begin="1.2s" repeatCount="indefinite"/></circle>
+          <line x1="580" y1="240" x2="700" y2="130" stroke="#66FCF1" stroke-opacity=".5"/>
+          <rect x="650" y="108" width="200" height="26" rx="6" fill="#0B0C10" stroke="#66FCF1" stroke-opacity=".5"/>
+          <text x="661" y="125">X 12.431 · Y 8.762 · Z 3.248</text></g>
+        <text x="24" y="36" fill="#4E9F9D">LIVING ROOM · SPATIAL BASELINE</text>
+        <text x="24" y="56" fill="#66FCF1">✓ VERIFIED · BLOCK #1,482,771</text>
+      </g>
+    </svg>
+    <p style="margin-top:12px;font-size:.75rem;font-family:ui-monospace,Menlo,monospace;color:#4E9F9D">Illustrative mockup — coordinate-mapped room state, anchored to the ledger.</p>
+  </div>
+</header>
+
+<section id="features">
+  <div class="wrap">
+    <div class="center">
+      <div class="eyebrow">Architectural Advantage</div>
+      <h2>Why 3D Spatial State Beats Flat Photos</h2>
+      <p class="lead">Damage disputes today rest on photo albums and he-said-she-said. VeriSpace indexes every room as a coordinate space and chains each change cryptographically.</p>
+    </div>
+    <div class="grid3">
+      <div class="card"><div class="icon">⛓</div><h3>Append-Only Merkle Ledger</h3><p>Every check-in, repair, and restock is chained with SHA-256 nonce hashes. Database rules block updates and deletes, so history can't be backdated.</p></div>
+      <div class="card"><div class="icon">✓</div><h3>Snap-to-Verify Crew QA</h3><p>Cleaning crews complete geofenced, room-by-room checklists backed by unedited photo captures hashed on the device.</p></div>
+      <div class="card"><div class="icon">◎</div><h3>Silent Guest Fingerprinting</h3><p>Guests get an interactive house guide while background keyframe hashing secures an unaltered arrival and checkout record.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="economics">
+  <div class="wrap">
+    <div class="center">
+      <div class="eyebrow">Business Model</div>
+      <h2>Market Gap &amp; <span>Revenue Potential</span></h2>
+      <p class="lead">One unified platform in place of a patchwork of separate tools. Figures below are planning estimates.</p>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <div class="eyebrow" style="color:#f87171">The Fragmented Stack (est.)</div>
+        <div style="margin-top:16px">
+          <div class="row"><span>Operations tools</span><span class="bad">~$12 / mo</span></div>
+          <div class="row"><span>Guest guidebooks</span><span class="bad">~$10 / mo</span></div>
+          <div class="row"><span>Damage evidence</span><span class="bad">~$19 / mo</span></div>
+          <div class="row big"><span>Host cost per property</span><span class="bad">~$41 / mo</span></div>
+        </div>
+        <div class="note red"><b>Limitation:</b> separate tools share no common 3D coordinate system, so evidence can't be tied to a specific spot in a room.</div>
+      </div>
+      <div class="card glow">
+        <div class="eyebrow">VeriSpace SaaS Model</div>
+        <div style="margin-top:16px">
+          <div class="row"><span style="color:#fff">Subscription (per property)</span><span style="color:var(--mint);font-family:ui-monospace,monospace">$19 / mo</span></div>
+          <div class="row"><span>Edge &amp; AI compute (est.)</span><span style="font-family:ui-monospace,monospace">−$0.30 / mo</span></div>
+          <div class="row big"><span>Gross margin</span><span style="color:var(--mint)">~98%</span></div>
+        </div>
+        <div class="note mint"><b>The pitch:</b> operations, guidebook, and cryptographic evidence in one product, at less than half the combined price.</div>
+      </div>
+    </div>
+
+    <div class="card calc" style="margin-top:24px">
+      <div class="eyebrow">Revenue Calculator</div>
+      <h3 style="margin:8px 0 16px">Properties under management: <span id="n" style="color:var(--mint)">25</span></h3>
+      <input id="s" type="range" min="1" max="500" value="25" aria-label="Number of properties">
+      <div class="out">
+        <div><b id="rev">$475</b><span>Monthly revenue</span></div>
+        <div><b id="cost">$7.50</b><span>Est. compute cost</span></div>
+        <div><b id="arr">$5,700</b><span>Annual revenue</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="budget">
+  <div class="wrap" style="max-width:900px">
+    <div class="center">
+      <div class="eyebrow">Financial Efficiency</div>
+      <h2>Lean Operating Budget</h2>
+      <p class="lead">Estimated monthly cost to run an early 1–5 property portfolio.</p>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Component</th><th>Provider &amp; tier</th><th class="r">Monthly</th></tr></thead>
+        <tbody>
+          <tr><td>PWA edge hosting</td><td>Cloudflare Pages / Vercel (free)</td><td class="r">$0.00</td></tr>
+          <tr><td>Database &amp; auth</td><td>Supabase PostgreSQL (free)</td><td class="r">$0.00</td></tr>
+          <tr><td>3D mesh &amp; keyframe storage</td><td>Cloudflare R2</td><td class="r">$0.00</td></tr>
+          <tr><td>SMS capability links</td><td>Twilio / Resend</td><td class="r">~$1.00</td></tr>
+          <tr><td>AI vision verification</td><td>Gemini / Claude API (pay-as-you-go)</td><td class="r">~$0.50</td></tr>
+          <tr class="total"><td colspan="2">Total monthly operating cost</td><td class="r">~$1.50</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section id="roadmap">
+  <div class="wrap">
+    <div class="center"><div class="eyebrow">Execution</div><h2>Development Roadmap</h2><p class="lead">Timeline to a working MVP.</p></div>
+    <div class="timeline">
+      <div class="step now"><div class="dot"></div><div><small>Now</small><h4>Phase 1 · Proof of Concept</h4><p>Repository, Project Bible, brand system, and this demo site.</p></div></div>
+      <div class="step"><div class="dot"></div><div><small>Weeks 1–2</small><h4>Phase 2 · MVP Core Build</h4><p>Supabase schema for the Merkle ledger, passwordless guest links, manager dashboard.</p></div></div>
+      <div class="step"><div class="dot"></div><div><small>Weeks 3–4</small><h4>Phase 3 · Spatial &amp; Vision Engine</h4><p>Three.js viewport, client-side frame hashing, snap-to-verify checklist, arrival-vs-checkout vision comparison.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>&copy; 2026 VeriSpace. Built for trustless property operations.</p>
+  <p style="margin-top:6px;color:#4E9F9D">PROOF · OWNERSHIP · TRUST</p>
+</footer>
+
+<script>
+  var s = document.getElementById('s');
+  function fmt(v, d) { return '$' + v.toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d}); }
+  function update() {
+    var n = +s.value;
+    document.getElementById('n').textContent = n;
+    document.getElementById('rev').textContent = fmt(n * 19, 0);
+    document.getElementById('cost').textContent = fmt(n * 0.3, 2);
+    document.getElementById('arr').textContent = fmt(n * 19 * 12, 0);
+  }
+  s.addEventListener('input', update);
+  update();
+</script>
+</body>
+</html>
