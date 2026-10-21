@@ -1,6 +1,8 @@
 import CaptureApp from "@/components/capture/CaptureApp";
+import type { RoomFeatureInfo } from "@/components/capture/RoomList";
 import { Logo } from "@/components/ui/primitives";
 import { EMPTY_PROCEDURES, toChecklistItem, toContent, type ChecklistItem, type Procedures, type RoomContent } from "@/lib/guide";
+import { FEATURE_STATUS_EVENT, featureStatuses, stateOf, toFeature } from "@/lib/model";
 import { doneItemIds } from "@/lib/readiness";
 import { verifyCapability, type CapabilityRole } from "@/lib/capability";
 import { env } from "@/lib/env";
@@ -67,6 +69,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
   const contentByRoom = new Map<string, RoomContent[]>();
   const tasksByRoom = new Map<string, ChecklistItem[]>();
   const doneByRoom = new Map<string, string[]>();
+  const featuresByRoom = new Map<string, RoomFeatureInfo[]>();
 
   if (roomIds.length > 0) {
     if (role === "guest") {
@@ -77,6 +80,27 @@ export default async function LinkGate({ token, role }: { token: string; role: C
       if (!procRes.error && procRes.data) {
         const p = procRes.data as { checkin_instructions: string | null; checkout_instructions: string | null; house_rules: string | null };
         guide = { checkin: p.checkin_instructions ?? "", checkout: p.checkout_instructions ?? "", rules: p.house_rules ?? "" };
+      }
+      // Features guests can use, with their current status read from the ledger.
+      const featRes = await db
+        .from("room_features")
+        .select("id, room_id, kind, name, pos_x, pos_y, advertised, details")
+        .in("room_id", roomIds)
+        .eq("advertised", true)
+        .order("created_at");
+      if (!featRes.error && (featRes.data ?? []).length > 0) {
+        const evRes = await db
+          .from("room_state_ledger")
+          .select("event_type, payload")
+          .in("room_id", roomIds)
+          .eq("event_type", FEATURE_STATUS_EVENT)
+          .order("seq");
+        const statuses = featureStatuses(evRes.error ? [] : ((evRes.data ?? []) as { event_type: string; payload: unknown }[]));
+        for (const row of (featRes.data ?? []) as Parameters<typeof toFeature>[0][]) {
+          const f = toFeature(row);
+          const s = stateOf(statuses, f.id);
+          featuresByRoom.set(f.roomId, [...(featuresByRoom.get(f.roomId) ?? []), { id: f.id, name: f.name, kind: f.kind, status: s.status, note: s.note }]);
+        }
       }
       if (!contentRes.error) {
         for (const row of (contentRes.data ?? []) as { id: string; room_id: string; kind: string; title: string; body: string | null }[]) {
@@ -123,6 +147,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
       rooms={rooms.map((r) => ({
         ...r,
         content: contentByRoom.get(r.id) ?? [],
+        features: featuresByRoom.get(r.id) ?? [],
         checklist: tasksByRoom.get(r.id) ?? [],
         doneItems: doneByRoom.get(r.id) ?? [],
       }))}

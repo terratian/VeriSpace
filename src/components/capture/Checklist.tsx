@@ -12,11 +12,13 @@ export function Checklist({
   done,
   busyId,
   onTick,
+  title = "Tasks",
 }: {
   items: ChecklistItem[];
   done: ReadonlySet<string>;
   busyId: string | null;
   onTick: (item: ChecklistItem) => void;
+  title?: string;
 }) {
   if (items.length === 0) return null;
   const recorded = items.filter((i) => done.has(i.id)).length;
@@ -24,7 +26,7 @@ export function Checklist({
   return (
     <section aria-label="Room tasks" className="mt-6">
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">Tasks</h2>
+        <h2 className="text-[15px] font-semibold">{title}</h2>
         <p className="text-[13px] text-mute">
           {recorded === items.length ? "All recorded" : `${recorded} of ${items.length} recorded`}
         </p>

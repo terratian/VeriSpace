@@ -31,3 +31,6 @@
 - Done: property guide builder, crew task checklists, guest guide, turnover readiness, light theme, dashboard metrics and 14-day calendar.
 - Next, in order: SMS touchpoints and guest guide delivery (design: `docs/design/sms-plivo.md`), assets and maintenance module, geofencing, baseline scan, 3D viewport.
 - Later: staging and amenity standards, direct booking and payments, local recommendations.
+
+- Done 2026-10-21: property model (rooms, features, layout), setup wizard, 3D viewer, manager baseline walk, listing derived from feature status.
+- Next: maintenance tickets feeding feature status, then SMS touchpoints, geofencing, asset data (6D/7D), real 3D scan.

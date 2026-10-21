@@ -84,3 +84,13 @@ describe("which tasks count as recorded", () => {
     expect(doneItemIds(items, events).size).toBe(0);
   });
 });
+
+describe("manager baseline", () => {
+  it("titles a feature photo and records it as a baseline", async () => {
+    const { taskIntent, baselineStatus, EMPTY_PROGRESS } = await import("./capture");
+    expect(taskIntent("Cedar hot tub", "baseline_photo", "Record baseline")).toMatchObject({ eventType: "baseline_photo", saveLabel: "Record baseline" });
+    expect(baselineStatus(EMPTY_PROGRESS)).toEqual({ label: "No photos yet", tone: "neutral" });
+    expect(baselineStatus({ ...EMPTY_PROGRESS, photos: 1 }, { done: 1, total: 2 })).toEqual({ label: "1 of 2 features", tone: "amber" });
+    expect(baselineStatus({ ...EMPTY_PROGRESS, photos: 1 }, { done: 2, total: 2 })).toEqual({ label: "Baselined", tone: "mint" });
+  });
+});

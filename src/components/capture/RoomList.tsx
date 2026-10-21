@@ -4,12 +4,23 @@ import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import type { Tone } from "@/components/ui/styles";
 import type { ChecklistItem, RoomContent } from "@/lib/guide";
+import type { FeatureKind, FeatureStatus } from "@/lib/model";
+
+export interface RoomFeatureInfo {
+  id: string;
+  name: string;
+  kind: FeatureKind;
+  status: FeatureStatus;
+  note: string;
+}
 
 export interface RoomInfo {
   id: string;
   name: string;
   /** What the manager wrote about the room for guests. */
   content: RoomContent[];
+  /** Features guests can use here, with their current status. */
+  features: RoomFeatureInfo[];
   /** The room's tasks for the crew. */
   checklist: ChecklistItem[];
   /** Task ids already recorded for this stay. */

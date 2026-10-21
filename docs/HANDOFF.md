@@ -71,3 +71,12 @@ Each chunk can be done and checked on its own.
 
 ## Theme and dashboard
 Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-dark surfaces such as the camera use `data-theme="dark"`). Dashboard metrics and calendar logic: `src/lib/overview.ts`; sample-data preview at `/dev-preview/dashboard` (dev only). Phone testing: `docs/PHONE_TESTING.md`. SMS plan: `docs/design/sms-plivo.md`.
+
+## Property model, wizard, 3D viewer (migration 20261023000000_property_model.sql)
+- The property is a tree: property > room > feature (hot tub, fireplace, lock, Wi-Fi...). Room size and position live on `rooms` (stored in meters, entered in feet); features in `room_features`.
+- A feature's status is never stored on the feature. It is the latest `feature_status` ledger entry for it (`featureStatuses` in `src/lib/model.ts`), so history is kept and the guest view can't drift from the owner's record. `feature_status` and `baseline_photo` are manager-only event types; the API checks the feature belongs to the room.
+- Wizard: `/dashboard/properties/[id]/setup?step=layout|features|baseline|review`. Review shows the Three.js view (`PropertyViewer`, loaded on demand), the listing as advertised, and status controls.
+- Manager baseline: `/dashboard/properties/[id]/walk` reuses the capture screen (`role="manager"`), authenticated with the manager's session token; each photo is a `baseline_photo` entry, per room or per feature.
+- Guests see advertised features and any that are out of service in their room (`LinkGate`).
+- Dev previews: `/dev-preview/model` (viewer), `/dev-preview?role=manager|guest|crew`. Browser test: `scripts/tasks-flow.mjs`.
+- Not built yet: maintenance tickets that change a feature's status, per-asset data (speed tests, sensor readings, subscriptions), real 3D scans, per-asset chains. Apply the migration in the Supabase SQL editor first.

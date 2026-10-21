@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CapabilityClaims } from "./capability";
+import { BASELINE_EVENT, FEATURE_STATUSES, FEATURE_STATUS_EVENT } from "./model";
 
 /** Who is making a request. Managers come from Supabase auth; crew/guests from capability links. */
 export type Principal =
@@ -73,6 +74,8 @@ export interface LedgerDb {
   getRoom(roomId: string): Promise<RoomRecord | null>;
   insertEvent(row: LedgerRow): Promise<AppendedEvent>;
   verifyChain(roomId: string): Promise<ChainStatus>;
+  /** Whether a feature belongs to the room. Optional so a store without features still works. */
+  featureInRoom?(roomId: string, featureId: string): Promise<boolean>;
 }
 
 /** An error that maps to an HTTP status (auth failures, missing rows, rejected input). */
@@ -107,6 +110,21 @@ export function authorizeRoomAccess(principal: Principal, room: RoomRecord): voi
   }
 }
 
+/** Shape checks for the model's event types, so a status entry always names a real status and feature. */
+export function validateModelPayload(eventType: string, payload: Record<string, unknown>): void {
+  const bad = (m: string) => {
+    throw new LedgerAuthError(m, 422);
+  };
+  if (eventType === FEATURE_STATUS_EVENT) {
+    if (!z.guid().safeParse(payload.featureId).success) bad("feature_status needs a featureId");
+    if (!(FEATURE_STATUSES as readonly unknown[]).includes(payload.status)) bad("feature_status needs a valid status");
+    if (payload.note !== undefined && typeof payload.note !== "string") bad("note must be text");
+  }
+  if (eventType === BASELINE_EVENT && payload.itemId !== undefined && !z.guid().safeParse(payload.itemId).success) {
+    bad("itemId must be a feature id");
+  }
+}
+
 /** Throws LedgerAuthError unless `principal` may act on `room` with this event type. */
 export function authorizeEvent(principal: Principal, room: RoomRecord, eventType: string): void {
   authorizeRoomAccess(principal, room);
@@ -130,6 +148,11 @@ export async function appendLedgerEvent(
   const room = await db.getRoom(input.roomId);
   if (!room) throw new LedgerAuthError("room not found", 404);
   authorizeEvent(principal, room, input.eventType);
+  validateModelPayload(input.eventType, input.payload);
+  const featureId = input.eventType === FEATURE_STATUS_EVENT ? input.payload.featureId : input.eventType === BASELINE_EVENT ? input.payload.itemId : undefined;
+  if (typeof featureId === "string" && db.featureInRoom && !(await db.featureInRoom(room.id, featureId))) {
+    throw new LedgerAuthError("that feature is not in this room", 422);
+  }
 
   if (input.frameSha256 && photos && !(await photos.exists(room.propertyId, input.frameSha256))) {
     throw new LedgerAuthError("photo has not been uploaded", 409);

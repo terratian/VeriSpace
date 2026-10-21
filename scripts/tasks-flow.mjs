@@ -52,6 +52,28 @@ check("photo task records itemId and fingerprint", !!photo && /^[0-9a-f]{64}$/.t
 check("tasks all recorded", await page.getByText("All recorded").isVisible());
 check("finish now enabled", await page.getByRole("button", { name: "Finish room" }).isEnabled());
 await page.screenshot({ path: `${out}/crew-kitchen.png` });
+// Guest: features with status.
+await page.goto("http://localhost:3997/dev-preview?role=guest", { waitUntil: "networkidle" });
+await page.getByText("Primary Bedroom").first().click();
+check("guest sees an out-of-service feature", await page.getByText("Out of service").isVisible());
+check("guest sees the repair note", await page.getByText("Pump replacement ordered").isVisible());
+
+// Manager: baseline photo for a feature.
+calls.length = 0;
+await page.goto("http://localhost:3997/dev-preview?role=manager", { waitUntil: "networkidle" });
+await page.getByText("Living Room").first().click();
+await page.getByRole("button", { name: /Gas fireplace/ }).click();
+const d2 = page.getByRole("dialog");
+await d2.waitFor({ timeout: 8000 });
+await page.waitForTimeout(1200);
+await d2.getByRole("button", { name: /capture|take|shutter/i }).first().click();
+await page.getByRole("button", { name: "Record baseline" }).waitFor({ timeout: 8000 });
+await page.getByRole("button", { name: "Record baseline" }).click();
+await page.waitForTimeout(800);
+const base = calls.find((c) => c.eventType === "baseline_photo");
+check("baseline photo records the feature and fingerprint", base?.payload?.itemId === "f1" && /^[0-9a-f]{64}$/.test(base?.frameSha256 ?? ""));
+check("feature shows as recorded", await page.getByText("1 of 2 recorded").isVisible());
+await page.screenshot({ path: `${out}/manager-room.png` });
 check("no page errors", errors.length === 0);
 await browser.close();
 process.exit(failed ? 1 : 0);

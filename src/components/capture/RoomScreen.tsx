@@ -3,7 +3,7 @@
 import { ArrowLeft, Camera, Check, Flag, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
-import { canFinish, crewStatus, guestStatus, type RoomProgress } from "@/lib/capture";
+import { baselineStatus, canFinish, crewStatus, guestStatus, type RoomProgress } from "@/lib/capture";
 import type { ChecklistItem } from "@/lib/guide";
 import { Checklist } from "./Checklist";
 import type { RoomInfo } from "./RoomList";
@@ -55,7 +55,7 @@ export function RoomScreen({
   busyTask,
   onTask,
 }: {
-  role: "crew" | "guest";
+  role: "crew" | "guest" | "manager";
   room: RoomInfo;
   progress: RoomProgress;
   mode: "arrival" | "departure";
@@ -72,12 +72,42 @@ export function RoomScreen({
   busyTask: string | null;
   onTask: (item: ChecklistItem) => void;
 }) {
+  const tasksDone = room.checklist.filter((i) => done.has(i.id)).length;
+  const tasksLeft = room.checklist.length - tasksDone;
+
   const back = (
     <button type="button" onClick={onBack} className="-ml-2 mb-4 inline-flex h-11 items-center gap-2 rounded-lg px-2 text-sm text-ash hover:text-white">
       <ArrowLeft className="size-4" aria-hidden="true" />
       All rooms
     </button>
   );
+
+  if (role === "manager") {
+    const status = baselineStatus(progress, { done: tasksDone, total: room.checklist.length });
+    return (
+      <div>
+        {back}
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-[26px] font-semibold leading-tight">{room.name}</h1>
+          <Badge tone={status.tone}>{status.label}</Badge>
+        </div>
+        <p className="mt-2 max-w-[44ch] text-ash">
+          Photograph the room as it should look, then each feature. Each photo is fingerprinted and recorded in this room&apos;s ledger as its baseline.
+        </p>
+        {error && (
+          <p role="alert" className="mt-4 rounded-lg border border-flag/40 bg-flag/10 px-3 py-2 text-sm text-flag">
+            {error}
+          </p>
+        )}
+        <button type="button" onClick={onPhoto} className={`${button(progress.photos > 0 ? "secondary" : "primary", "lg")} mt-6 w-full`}>
+          <Camera className="size-5" aria-hidden="true" />
+          {progress.photos > 0 ? "Add another room photo" : "Take room photo"}
+        </button>
+        <Checklist title="Features" items={room.checklist} done={done} busyId={busyTask} onTick={onTask} />
+        <ShotGrid shots={shots} />
+      </div>
+    );
+  }
 
   if (role === "guest") {
     const status = guestStatus(progress);
@@ -99,7 +129,7 @@ export function RoomScreen({
             {error}
           </p>
         )}
-        <RoomGuide content={room.content} />
+        <RoomGuide content={room.content} features={room.features} />
         <button type="button" onClick={onPhoto} className={`${button("primary", "lg")} mt-6 w-full`}>
           <Camera className="size-5" aria-hidden="true" />
           {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}
@@ -109,8 +139,6 @@ export function RoomScreen({
     );
   }
 
-  const tasksDone = room.checklist.filter((i) => done.has(i.id)).length;
-  const tasksLeft = room.checklist.length - tasksDone;
   const status = crewStatus(progress, { done: tasksDone, total: room.checklist.length });
   const finishable = canFinish(progress, tasksLeft);
   // One primary action at a time: whatever the next step is.

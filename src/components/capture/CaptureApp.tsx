@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, Logo } from "@/components/ui/primitives";
-import { EMPTY_PROGRESS, INTENTS, crewStatus, guestStatus, progressKey, taskIntent, type Intent, type Shot } from "@/lib/capture";
+import { EMPTY_PROGRESS, INTENTS, baselineStatus, crewStatus, guestStatus, progressKey, taskIntent, type Intent, type Shot } from "@/lib/capture";
 import type { ChecklistItem, Procedures } from "@/lib/guide";
 import { GuestProcedures } from "./GuestProcedures";
 import { CaptureError, sendEvent, type RecordedEvent } from "@/lib/captureClient";
@@ -15,7 +15,7 @@ import { useProgress } from "./useProgress";
 
 export interface CaptureAppProps {
   token: string;
-  role: "crew" | "guest";
+  role: "crew" | "guest" | "manager";
   propertyName: string;
   guestName: string | null;
   /** ISO time the stay ends, used to pick a sensible default photo type for guests. */
@@ -25,6 +25,10 @@ export interface CaptureAppProps {
   storageEnabled: boolean;
   /** Check-in, checkout and house-rule text, shown to guests. */
   guide: Procedures;
+  /** Key for remembering progress on this device when the token changes between visits. */
+  storageId?: string;
+  /** Rendered inside a page that already has a header and main region. */
+  embedded?: boolean;
 }
 
 type Mode = "arrival" | "departure";
@@ -36,7 +40,7 @@ function formatValidUntil(iso: string): string {
 
 export default function CaptureApp(props: CaptureAppProps) {
   const { token, role, rooms } = props;
-  const { progress, bump } = useProgress(token);
+  const { progress, bump } = useProgress(props.storageId ?? token);
 
   const [mode, setMode] = useState<Mode>("arrival");
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -73,7 +77,7 @@ export default function CaptureApp(props: CaptureAppProps) {
   const doneCount = rooms.filter((r) => (role === "crew" ? progressOf(r.id).finished : progressOf(r.id).photos > 0)).length;
   const percent = rooms.length ? Math.round((doneCount / rooms.length) * 100) : 0;
 
-  const photoIntent: Intent = role === "crew" ? INTENTS.crewPhoto : mode === "arrival" ? INTENTS.guestArrival : INTENTS.guestDeparture;
+  const photoIntent: Intent = role === "manager" ? INTENTS.baselineRoom : role === "crew" ? INTENTS.crewPhoto : mode === "arrival" ? INTENTS.guestArrival : INTENTS.guestDeparture;
 
   function open(r: RoomInfo | null) {
     setError("");
@@ -86,7 +90,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     if (!room || checked.has(item.id)) return;
     if (item.requiresPhoto) {
       setPendingTask(item);
-      setCamera(taskIntent(item.label));
+      setCamera(role === "manager" ? taskIntent(item.label, "baseline_photo", "Record baseline") : taskIntent(item.label));
       return;
     }
     setBusyTask(item.id);
@@ -111,7 +115,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     if (!room) return;
     const key = keyFor(room.id);
     bump(key, intent.eventType === "damage_report" ? "damage" : "photo");
-    if (pendingTask && intent.eventType === "checklist_item") setChecked((prev) => new Set(prev).add(pendingTask.id));
+    if (pendingTask) setChecked((prev) => new Set(prev).add(pendingTask.id));
     setPendingTask(null);
     keptUrls.current.push(shot.url);
     setShots((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), { key: `${event.id}`, url: shot.url, seq: event.seq }] }));
@@ -134,13 +138,16 @@ export default function CaptureApp(props: CaptureAppProps) {
     }
   }
 
+  const Wrapper = props.embedded ? "div" : "main";
   const firstName = props.guestName?.trim().split(/\s+/)[0];
 
   return (
-    <main className="mx-auto min-h-dvh max-w-[480px] px-5 pb-28 pt-[max(1.25rem,env(safe-area-inset-top))]">
-      <header className="mb-8">
-        <Logo className="text-[15px]" />
-      </header>
+    <Wrapper className={`mx-auto max-w-[480px] px-5 ${props.embedded ? "pb-24 pt-6" : "min-h-dvh pb-28 pt-[max(1.25rem,env(safe-area-inset-top))]"}`}>
+      {!props.embedded && (
+        <header className="mb-8">
+          <Logo className="text-[15px]" />
+        </header>
+      )}
 
       {room ? (
         <RoomScreen
@@ -174,9 +181,9 @@ export default function CaptureApp(props: CaptureAppProps) {
       ) : (
         <>
           <h1 className="text-[28px] font-semibold leading-tight">
-            {role === "crew" ? props.propertyName : firstName ? `Welcome, ${firstName}` : "Welcome"}
+            {role === "crew" || role === "manager" ? props.propertyName : firstName ? `Welcome, ${firstName}` : "Welcome"}
           </h1>
-          <p className="mt-1 text-mute">{role === "crew" ? "Turnover checklist" : props.propertyName}</p>
+          <p className="mt-1 text-mute">{role === "crew" ? "Turnover checklist" : role === "manager" ? "Baseline walkthrough" : props.propertyName}</p>
 
           {role === "guest" && (
             <div className="mt-6">
@@ -219,7 +226,9 @@ export default function CaptureApp(props: CaptureAppProps) {
               <div className="mt-4">
                 <RoomList
                   rooms={rooms}
-                  statusFor={(r) => (role === "crew" ? crewStatus(progressOf(r.id), tasksOf(r)) : guestStatus(progressOf(r.id)))}
+                  statusFor={(r) =>
+                    role === "crew" ? crewStatus(progressOf(r.id), tasksOf(r)) : role === "manager" ? baselineStatus(progressOf(r.id), tasksOf(r)) : guestStatus(progressOf(r.id))
+                  }
                   onOpen={open}
                 />
               </div>
@@ -228,7 +237,7 @@ export default function CaptureApp(props: CaptureAppProps) {
 
           {role === "guest" && <GuestProcedures guide={props.guide} />}
 
-          {validUntil && <p className="mt-8 text-[13px] text-mute">This link works until {validUntil}.</p>}
+          {validUntil && role !== "manager" && <p className="mt-8 text-[13px] text-mute">This link works until {validUntil}.</p>}
         </>
       )}
 
@@ -262,7 +271,7 @@ export default function CaptureApp(props: CaptureAppProps) {
             discard(review.shot);
             setPendingTask(null);
           }}
-          task={pendingTask && review.intent.eventType === "checklist_item" ? { id: pendingTask.id, label: pendingTask.label } : undefined}
+          task={pendingTask ? { id: pendingTask.id, label: pendingTask.label } : undefined}
           onRecorded={(event, shot) => recorded(event, shot, review.intent)}
         />
       )}
@@ -279,6 +288,6 @@ export default function CaptureApp(props: CaptureAppProps) {
           </p>
         )}
       </div>
-    </main>
+    </Wrapper>
   );
 }

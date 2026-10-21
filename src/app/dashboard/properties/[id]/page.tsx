@@ -1,4 +1,4 @@
-import { ListChecks, Plus } from "lucide-react";
+import { Box, ListChecks, Plus } from "lucide-react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
@@ -153,6 +153,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           <a href={`/dashboard/properties/${property.id}/guide`} className={button("secondary", "sm")}>
             <ListChecks className="size-4" aria-hidden="true" />
             Set up guide
+          </a>
+          <a href={`/dashboard/properties/${property.id}/setup`} className={button("secondary", "sm")}>
+            <Box className="size-4" aria-hidden="true" />
+            Model
           </a>
         </div>
       </header>

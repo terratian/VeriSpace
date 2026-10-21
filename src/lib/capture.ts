@@ -43,7 +43,7 @@ export const EMPTY_PROGRESS: RoomProgress = { started: false, finished: false, p
 export type CaptureAction = "start" | "photo" | "damage" | "finish";
 
 /** Crew progress is per room; guest progress is per room and per mode (arrival or departure). */
-export function progressKey(role: "crew" | "guest", roomId: string, mode?: "arrival" | "departure"): string {
+export function progressKey(role: "crew" | "guest" | "manager", roomId: string, mode?: "arrival" | "departure"): string {
   return role === "guest" ? `${roomId}:${mode ?? "arrival"}` : roomId;
 }
 
@@ -104,17 +104,28 @@ export interface Intent {
 }
 
 /** The camera and review screens for a task that needs a photo, titled with the task. */
-export function taskIntent(label: string): Intent {
+export function taskIntent(label: string, eventType = "checklist_item", saveLabel = "Record task"): Intent {
   return {
-    eventType: "checklist_item",
+    eventType,
     title: label.length > 60 ? `${label.slice(0, 57)}...` : label,
     noteLabel: "Note (optional)",
     noteRequired: false,
-    saveLabel: "Record task",
+    saveLabel,
   };
 }
 
+/** Where a manager's baseline walk stands in a room: features photographed, or room photos taken. */
+export function baselineStatus(p: RoomProgress, features?: { done: number; total: number }): { label: string; tone: "neutral" | "amber" | "mint" } {
+  if (features && features.total > 0) {
+    const label = `${features.done} of ${features.total} features`;
+    if (features.done === features.total && p.photos > 0) return { label: "Baselined", tone: "mint" };
+    return { label, tone: features.done > 0 || p.photos > 0 ? "amber" : "neutral" };
+  }
+  return p.photos > 0 ? { label: "Baselined", tone: "mint" } : { label: "No photos yet", tone: "neutral" };
+}
+
 export const INTENTS = {
+  baselineRoom: { eventType: "baseline_photo", title: "Baseline photo", noteLabel: "What does this show? (optional)", noteRequired: false, saveLabel: "Record baseline" },
   crewPhoto: { eventType: "photo_verified", title: "Verification photo", noteLabel: "Note (optional)", noteRequired: false, saveLabel: "Record photo" },
   crewDamage: { eventType: "damage_report", title: "Report damage", noteLabel: "What is damaged?", noteRequired: true, saveLabel: "Record damage" },
   guestArrival: {

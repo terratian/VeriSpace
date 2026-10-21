@@ -8,6 +8,8 @@ export const EVENT_LABELS: Record<string, string> = {
   guest_arrival_scan: "Arrival photo",
   guest_checkout_scan: "Departure photo",
   inspection: "Inspection",
+  baseline_photo: "Baseline photo",
+  feature_status: "Feature status changed",
 };
 
 export const ACTOR_LABELS = { manager: "Manager", crew: "Crew", guest: "Guest" } as const;

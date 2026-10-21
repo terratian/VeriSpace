@@ -103,3 +103,34 @@ describe("verifyRoomChain", () => {
     ).rejects.toMatchObject({ status: 403 });
   });
 });
+
+describe("model events", () => {
+  const FEATURE = "00000000-0000-0000-0000-0000000000f1";
+  const status = (over: Record<string, unknown> = {}) => ({ roomId: ROOM, eventType: "feature_status", payload: { featureId: FEATURE, status: "out_of_service", note: "pump", ...over } });
+
+  it("lets the owner record a feature status", async () => {
+    const db = fakeDb({ featureInRoom: async () => true });
+    await appendLedgerEvent(db, manager, status());
+    expect(db.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ eventType: "feature_status", actorRole: "manager" }));
+  });
+  it("keeps crew and guests out of feature status and baseline entries", async () => {
+    for (const p of [crew, guest]) {
+      await expect(appendLedgerEvent(fakeDb(), p, status())).rejects.toMatchObject({ status: 403 });
+      await expect(appendLedgerEvent(fakeDb(), p, { roomId: ROOM, eventType: "baseline_photo" })).rejects.toMatchObject({ status: 403 });
+    }
+  });
+  it("rejects an unknown status or a bad feature id", async () => {
+    await expect(appendLedgerEvent(fakeDb(), manager, status({ status: "exploded" }))).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(fakeDb(), manager, status({ featureId: "nope" }))).rejects.toMatchObject({ status: 422 });
+  });
+  it("rejects a feature from another room", async () => {
+    const db = fakeDb({ featureInRoom: async () => false });
+    await expect(appendLedgerEvent(db, manager, status())).rejects.toMatchObject({ status: 422 });
+    expect(db.insertEvent).not.toHaveBeenCalled();
+  });
+  it("checks the feature on a baseline photo too", async () => {
+    const db = fakeDb({ featureInRoom: async () => false });
+    await expect(appendLedgerEvent(db, manager, { roomId: ROOM, eventType: "baseline_photo", payload: { itemId: FEATURE } })).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(fakeDb(), manager, { roomId: ROOM, eventType: "baseline_photo" })).resolves.toBeDefined();
+  });
+});
