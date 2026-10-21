@@ -44,7 +44,7 @@ Each chunk can be done and checked on its own.
 1. **Finish the capture check.** Run `scripts/capture-flow.mjs` (instructions in its header). Extend it to click "Record photo" and assert items 1 and 2 above.
 2. **Run the SQL tests.** Start a scratch Postgres, set `PGHOST`, `PGPORT`, `PGUSER`, and run `npm run test:db`.
 3. **Live test with your Supabase.** Create a property, a room, a stay, and a crew link in the dashboard. Open the link on a phone and record one photo. Then run "Verify" on the room.
-4. **R2 bucket.** Create the bucket, an API token limited to it, and a CORS rule allowing `PUT` from the app origin. Add the storage variables. Confirm a photo lands in the bucket and shows in the property activity list.
+4. **R2 bucket.** Create a private bucket and an API token limited to it. No CORS rule is needed, because the server uploads the photo (`src/lib/storage.ts`) and the browser only loads short-lived signed links. Set `STORAGE_ENDPOINT` to the account address without the bucket name at the end. Confirm a photo lands in the bucket and shows in the property activity list.
 5. **Retention rule.** Add an R2 lifecycle rule to delete photos after the chosen number of days. The ledger keeps the fingerprints.
 6. **Send links by email.** Resend or similar. SMS needs US carrier registration, so start with email.
 7. **Offline queue** for captures taken without signal.
