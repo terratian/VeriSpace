@@ -1,0 +1,2 @@
+# Minimal Supabase CLI config. The remote project is linked with `npx supabase link`, which stores it in supabase/.temp (ignored).
+project_id = "verispace"
