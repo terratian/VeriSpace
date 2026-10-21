@@ -18,6 +18,42 @@
   --color-sky: #7ab8ff;
 }
 
+/* Light theme: the same token names, remapped. Headings use --color-white, so it turns dark here. */
+[data-theme="light"] {
+  color-scheme: light;
+  --color-obsidian: #f3f5f8;
+  --color-graphite: #ffffff;
+  --color-panel: #ffffff;
+  --color-slate-brand: #e6ebf1;
+  --color-edge: #d8dfe7;
+  --color-line: #c4d3d6;
+  --color-ash: #3b4654;
+  --color-mute: #667080;
+  --color-mint: #07807a;
+  --color-amber: #a86500;
+  --color-flag: #c73a3a;
+  --color-sky: #1f6fc2;
+  --color-white: #0b0c10;
+}
+
+/* Re-asserts the dark tokens inside a light page, for surfaces that are always dark (the camera). */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-obsidian: #0b0c10;
+  --color-graphite: #12151c;
+  --color-panel: #12151c;
+  --color-slate-brand: #1f2833;
+  --color-edge: #252d39;
+  --color-line: #1c3a3f;
+  --color-ash: #c5c6c7;
+  --color-mute: #8e98a5;
+  --color-mint: #66fcf1;
+  --color-amber: #f2b544;
+  --color-flag: #ff6b6b;
+  --color-sky: #7ab8ff;
+  --color-white: #ffffff;
+}
+
 html {
   color-scheme: dark;
   background: var(--color-obsidian);
@@ -36,7 +72,7 @@ body {
 h1,
 h2,
 h3 {
-  color: #fff;
+  color: var(--color-white);
   letter-spacing: -0.02em;
   text-wrap: balance;
 }

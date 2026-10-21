@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/primitives";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { button } from "@/components/ui/styles";
 
 export default function AppHeader({ email }: { email: string }) {
@@ -15,6 +16,7 @@ export default function AppHeader({ email }: { email: string }) {
           </Link>
         </nav>
         <div className="ml-auto flex items-center gap-3">
+          <ThemeToggle />
           <span className="hidden max-w-[240px] truncate text-[13px] text-mute sm:block">{email}</span>
           <form action="/auth/signout" method="post">
             <button className={button("ghost", "sm")}>Sign out</button>

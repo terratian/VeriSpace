@@ -4,10 +4,14 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActivityList, type ActivityItem } from "@/components/dashboard/ActivityList";
+import { OverviewPanel, type OverviewData } from "@/components/dashboard/OverviewPanel";
+import { StayCalendar, type CalendarRow } from "@/components/dashboard/StayCalendar";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { Badge, Breadcrumbs, DbError, EmptyState, Panel, SectionHeading } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
+import { calendarDays, dayCells, dayKeyInZone, occupancyPercent, weekCounts } from "@/lib/overview";
+import { computeReadiness, type ReadyEvent } from "@/lib/readiness";
 import { SOURCE_LABEL, type Source } from "@/lib/reservations";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { fmtDateTime, fmtDay, nightsBetween } from "@/lib/time";
@@ -28,7 +32,7 @@ interface PropertyRow {
   name: string;
   address: string | null;
   timezone: string;
-  rooms: { id: string }[];
+  rooms: { id: string; name: string }[];
   reservations: StayRow[];
 }
 interface LedgerRow {
@@ -53,7 +57,7 @@ export default async function Dashboard() {
   const [propertiesRes, activityRes, ledgerCountRes] = await Promise.all([
     supabase
       .from("properties")
-      .select("id, name, address, timezone, rooms(id), reservations(id, starts_at, ends_at, guest_name, source)")
+      .select("id, name, address, timezone, rooms(id, name), reservations(id, starts_at, ends_at, guest_name, source)")
       .gte("reservations.ends_at", now.toISOString())
       .order("created_at")
       .order("starts_at", { referencedTable: "reservations" })
@@ -75,6 +79,80 @@ export default async function Dashboard() {
   }
 
   const properties = (propertiesRes.data ?? []) as unknown as PropertyRow[];
+
+  // Calendar and metrics: stays from a week back (for the latest turnover) to two weeks ahead.
+  const DAYS = 14;
+  const windowStart = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+  const windowEnd = new Date(now.getTime() + (DAYS + 1) * 86_400_000).toISOString();
+  const windowRes = properties.length
+    ? await supabase
+        .from("reservations")
+        .select("id, property_id, starts_at, ends_at")
+        .gte("ends_at", windowStart)
+        .lte("starts_at", windowEnd)
+        .order("starts_at")
+    : { data: [], error: null };
+  const windowStays = (windowRes.error ? [] : (windowRes.data ?? [])) as unknown as { id: string; property_id: string; starts_at: string; ends_at: string }[];
+
+  const days = calendarDays(properties[0] ? dayKeyInZone(now, properties[0].timezone) : dayKeyInZone(now, "UTC"), DAYS);
+  const calendarRows: CalendarRow[] = properties.map((p) => ({
+    id: p.id,
+    name: p.name,
+    cells: dayCells(
+      windowStays.filter((s) => s.property_id === p.id).map((s) => ({ startsAt: s.starts_at, endsAt: s.ends_at })),
+      p.timezone,
+      days,
+    ),
+  }));
+
+  // Each property's latest checkout in the past week is its current turnover.
+  const turnoverOf = new Map<string, string>();
+  for (const s of windowStays) {
+    if (new Date(s.ends_at) <= now) turnoverOf.set(s.property_id, s.id);
+  }
+  const roomIds = properties.flatMap((p) => p.rooms.map((r) => r.id));
+  const turnoverIds = [...new Set(turnoverOf.values())];
+  const [itemsRes, eventsRes] =
+    roomIds.length && turnoverIds.length
+      ? await Promise.all([
+          supabase.from("room_checklist_items").select("id, room_id, requires_photo").in("room_id", roomIds),
+          supabase
+            .from("room_state_ledger")
+            .select("room_id, event_type, payload, frame_sha256")
+            .in("room_id", roomIds)
+            .in("event_type", ["clean_start", "clean_end", "checklist_item", "damage_report"])
+            .in("payload->>reservationId", turnoverIds)
+            .limit(2000),
+        ])
+      : [null, null];
+  const items = itemsRes && !itemsRes.error ? ((itemsRes.data ?? []) as { id: string; room_id: string; requires_photo: boolean | null }[]) : [];
+  const events = eventsRes && !eventsRes.error ? ((eventsRes.data ?? []) as unknown as (ReadyEvent & { payload: { reservationId?: string } | null })[]) : [];
+  const turnovers = { ready: 0, inProgress: 0, notStarted: 0 };
+  let damage = 0;
+  for (const p of properties) {
+    const stayId = turnoverOf.get(p.id);
+    if (!stayId || p.rooms.length === 0) continue;
+    const r = computeReadiness(
+      p.rooms.map((room) => ({
+        id: room.id,
+        name: room.name,
+        items: items.filter((i) => i.room_id === room.id).map((i) => ({ id: i.id, requiresPhoto: !!i.requires_photo })),
+      })),
+      events.filter((e) => e.payload?.reservationId === stayId),
+    );
+    damage += r.damage;
+    if (r.state === "ready") turnovers.ready++;
+    else if (r.state === "in_progress") turnovers.inProgress++;
+    else turnovers.notStarted++;
+  }
+  const overview: OverviewData = {
+    turnovers,
+    occupancy: occupancyPercent(calendarRows.map((r) => r.cells)),
+    week: weekCounts(calendarRows.map((r) => r.cells)),
+    damage,
+    days: DAYS,
+  };
+
   const roomCount = properties.reduce((n, p) => n + p.rooms.length, 0);
   const ledgerCount = ledgerCountRes.count ?? 0;
   const activity: ActivityItem[] = ((activityRes.data ?? []) as unknown as LedgerRow[]).map((r) => ({
@@ -114,7 +192,20 @@ export default async function Dashboard() {
         </details>
       </div>
 
-      <section className="mt-8">
+      {properties.length > 0 && (
+        <>
+          <section className="mt-8" aria-label="Overview">
+            <OverviewPanel data={overview} />
+          </section>
+          <section className="mt-8">
+            <SectionHeading title={`Next ${DAYS} days`} />
+            <StayCalendar days={days} rows={calendarRows} todayKey={days[0]} />
+          </section>
+        </>
+      )}
+
+      <section className="mt-10">
+        {properties.length > 0 && <SectionHeading title="Properties" count={properties.length} />}
         {properties.length === 0 ? (
           <EmptyState title="No properties yet">
             A property holds your rooms and stays. Crew and guest links are made from its stays.

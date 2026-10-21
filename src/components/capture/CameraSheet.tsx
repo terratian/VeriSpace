@@ -136,7 +136,7 @@ export function CameraSheet({ title, onShot, onClose }: { title: string; onShot:
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={title}>
+    <div data-theme="dark" className="fixed inset-0 z-50 flex flex-col bg-black" role="dialog" aria-modal="true" aria-label={title}>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         <video
           ref={videoRef}
