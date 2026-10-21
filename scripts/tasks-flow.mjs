@@ -74,6 +74,24 @@ const base = calls.find((c) => c.eventType === "baseline_photo");
 check("baseline photo records the feature and fingerprint", base?.payload?.itemId === "f1" && /^[0-9a-f]{64}$/.test(base?.frameSha256 ?? ""));
 check("feature shows as recorded", await page.getByText("1 of 2 recorded").isVisible());
 await page.screenshot({ path: `${out}/manager-room.png` });
+// Guest and crew: report a problem. It is evidence, not a room photo.
+for (const r of ["guest", "crew"]) {
+  calls.length = 0;
+  await page.goto(`http://localhost:3997/dev-preview?role=${r}`, { waitUntil: "networkidle" });
+  await page.getByText("Living Room").first().click();
+  await page.getByRole("button", { name: "Report a problem" }).click();
+  const d3 = page.getByRole("dialog");
+  await d3.waitFor({ timeout: 8000 });
+  await page.waitForTimeout(1200);
+  await d3.getByRole("button", { name: /capture|take|shutter/i }).first().click();
+  await page.getByLabel("What needs attention?").fill("Out of dish soap");
+  await page.getByRole("button", { name: "Send report" }).click();
+  await page.waitForTimeout(800);
+  const issue = calls.find((c) => c.eventType === "issue_reported");
+  check(`${r} problem report records note and fingerprint`, issue?.payload?.note === "Out of dish soap" && /^[0-9a-f]{64}$/.test(issue?.frameSha256 ?? ""));
+  await page.getByRole("button", { name: /All rooms/ }).click();
+  check(`${r} problem report is not counted as a room photo`, await page.getByText(r === "guest" ? "No photos yet" : "Not started").first().isVisible());
+}
 check("no page errors", errors.length === 0);
 await browser.close();
 process.exit(failed ? 1 : 0);

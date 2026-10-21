@@ -134,3 +134,32 @@ describe("model events", () => {
     await expect(appendLedgerEvent(fakeDb(), manager, { roomId: ROOM, eventType: "baseline_photo" })).resolves.toBeDefined();
   });
 });
+
+describe("issues and custody", () => {
+  it("lets guests and crew report a problem, and only crew resolve one", async () => {
+    const note = { roomId: ROOM, eventType: "issue_reported", payload: { note: "Out of dish soap", category: "supply" } };
+    await expect(appendLedgerEvent(fakeDb(), guest, note)).resolves.toBeDefined();
+    await expect(appendLedgerEvent(fakeDb(), crew, note)).resolves.toBeDefined();
+    const fix = { roomId: ROOM, eventType: "issue_resolved", payload: { issueId: 7 } };
+    await expect(appendLedgerEvent(fakeDb(), guest, fix)).rejects.toMatchObject({ status: 403 });
+    await expect(appendLedgerEvent(fakeDb(), crew, fix)).resolves.toBeDefined();
+  });
+  it("requires a description and a known category", async () => {
+    await expect(appendLedgerEvent(fakeDb(), guest, { roomId: ROOM, eventType: "issue_reported", payload: {} })).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(fakeDb(), guest, { roomId: ROOM, eventType: "issue_reported", payload: { note: "x", category: "fire" } })).rejects.toMatchObject({ status: 422 });
+  });
+  it("checks the issue being resolved is in this room", async () => {
+    const db = fakeDb({ issueInRoom: async () => false });
+    await expect(appendLedgerEvent(db, manager, { roomId: ROOM, eventType: "issue_resolved", payload: { issueId: 9 } })).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(fakeDb(), manager, { roomId: ROOM, eventType: "issue_resolved", payload: { issueId: "9" } })).rejects.toMatchObject({ status: 422 });
+  });
+  it("stamps who acted and ignores anything the request claims", async () => {
+    const labelled: Principal = { kind: "capability", claims: { role: "crew", propertyId: PROPERTY, label: "Maria, Sparkle Cleaning" } };
+    const db = fakeDb();
+    await appendLedgerEvent(db, labelled, { roomId: ROOM, eventType: "inspection", payload: { issuedTo: "Someone else", actorId: "forged", note: "ok" } });
+    expect(db.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ payload: { note: "ok", issuedTo: "Maria, Sparkle Cleaning" } }));
+    const db2 = fakeDb();
+    await appendLedgerEvent(db2, manager, { roomId: ROOM, eventType: "inspection", payload: { actorId: "forged" } });
+    expect(db2.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ payload: { actorId: OWNER } }));
+  });
+});

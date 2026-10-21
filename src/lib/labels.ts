@@ -10,6 +10,10 @@ export const EVENT_LABELS: Record<string, string> = {
   inspection: "Inspection",
   baseline_photo: "Baseline photo",
   feature_status: "Feature status changed",
+  issue_reported: "Reported a problem",
+  issue_resolved: "Resolved a problem",
+  maintenance_done: "Maintenance done",
+  tutorial_sent: "Tutorial sent",
 };
 
 export const ACTOR_LABELS = { manager: "Manager", crew: "Crew", guest: "Guest" } as const;

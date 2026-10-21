@@ -39,6 +39,16 @@ export function LinkMaker({ reservationId }: { reservationId: string }) {
       {({ state }) => (
         <>
           <input type="hidden" name="reservationId" value={reservationId} />
+          <label className="mb-2 block">
+            <span className="sr-only">Who is this link for? (optional)</span>
+            <input
+              name="label"
+              maxLength={60}
+              autoComplete="off"
+              placeholder="Issued to, such as Maria, Sparkle Cleaning (optional)"
+              className="w-full rounded-[10px] border border-edge bg-obsidian px-3 py-2 text-sm text-white placeholder:text-mute/70 focus-visible:border-mint focus-visible:outline-none"
+            />
+          </label>
           <div className="flex flex-wrap gap-2">
             <SubmitButton name="role" value="guest" variant="secondary" size="sm">
               <UserRound className="size-4" aria-hidden="true" />

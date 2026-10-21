@@ -114,7 +114,9 @@ export default function CaptureApp(props: CaptureAppProps) {
   function recorded(event: RecordedEvent, shot: Shot, intent: Intent) {
     if (!room) return;
     const key = keyFor(room.id);
-    bump(key, intent.eventType === "damage_report" ? "damage" : "photo");
+    // A problem report is evidence, not a room photo: it doesn't count toward arrival or verification photos.
+    if (intent.eventType === "damage_report") bump(key, "damage");
+    else if (intent.eventType !== "issue_reported") bump(key, "photo");
     if (pendingTask) setChecked((prev) => new Set(prev).add(pendingTask.id));
     setPendingTask(null);
     keptUrls.current.push(shot.url);
@@ -173,6 +175,10 @@ export default function CaptureApp(props: CaptureAppProps) {
           onDamage={() => {
             setPendingTask(null);
             setCamera(INTENTS.crewDamage);
+          }}
+          onIssue={() => {
+            setPendingTask(null);
+            setCamera(INTENTS.issue);
           }}
           done={checked}
           busyTask={busyTask}

@@ -41,10 +41,10 @@ describe("reservation stamping", () => {
     expect(payloadOf(insertEvent)).toEqual({});
   });
 
-  it("leaves manager payloads alone", async () => {
+  it("keeps manager payloads as sent, plus who acted", async () => {
     const { db, insertEvent } = fakeDb();
     await appendLedgerEvent(db, manager, { roomId: ROOM, eventType: "inspection", payload: { a: 1 } });
-    expect(payloadOf(insertEvent)).toEqual({ a: 1 });
+    expect(payloadOf(insertEvent)).toEqual({ a: 1, actorId: "owner-1" });
   });
 });
 

@@ -14,6 +14,8 @@ export interface CapabilityClaims {
   reservationId?: string;
   /** If present, the token may only act on these rooms. */
   roomIds?: string[];
+  /** Who the manager issued the link to, stamped on every entry made with it. */
+  label?: string;
 }
 
 export interface CapabilityWindow {
@@ -44,6 +46,7 @@ export async function signCapability(
     propertyId: claims.propertyId,
     reservationId: claims.reservationId,
     roomIds: claims.roomIds,
+    label: claims.label,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuer(ISSUER)
@@ -83,6 +86,7 @@ export async function verifyCapability(
         propertyId,
         reservationId: typeof payload.reservationId === "string" ? payload.reservationId : undefined,
         roomIds,
+        label: typeof payload.label === "string" && payload.label.trim() ? payload.label.slice(0, 60) : undefined,
       },
       expiresAt: new Date((payload.exp ?? 0) * 1000),
     };

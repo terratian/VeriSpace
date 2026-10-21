@@ -1,10 +1,11 @@
-import { Box, ListChecks, Plus } from "lucide-react";
+import { Box, FileText, ListChecks, Plus } from "lucide-react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { ActivityList, type ActivityItem } from "@/components/dashboard/ActivityList";
 import { AddRoomForm } from "@/components/dashboard/AddRoomForm";
 import { AddStayForm } from "@/components/dashboard/AddStayForm";
+import { UpkeepPanel, type IssueView } from "@/components/dashboard/UpkeepPanel";
 import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
@@ -13,7 +14,9 @@ import type { ChainEntry } from "@/components/ChainStrip";
 import { Badge, Breadcrumbs, DbError, EmptyState, Panel, SectionHeading } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
+import { openIssues, type LedgerEntry } from "@/lib/issues";
 import { eventLabel } from "@/lib/labels";
+import { photoStoreFromEnv } from "@/lib/storage";
 import { computeReadiness, type ReadyEvent } from "@/lib/readiness";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { zoneAbbreviation } from "@/lib/time";
@@ -117,6 +120,36 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
     );
   }
 
+  // Open problems, read from the ledger: a report with no later resolution pointing at it.
+  const [issueRes, featureRes] = roomIds.length
+    ? await Promise.all([
+        supabase
+          .from("room_state_ledger")
+          .select("id, seq, room_id, event_type, actor_role, created_at, payload, frame_sha256")
+          .in("room_id", roomIds)
+          .in("event_type", ["issue_reported", "issue_resolved", "damage_report"])
+          .order("created_at")
+          .limit(1500),
+        supabase.from("room_features").select("id, room_id, name").in("room_id", roomIds).order("created_at"),
+      ])
+    : [{ data: [], error: null }, { data: [], error: null }];
+  const featureRows = featureRes.error ? [] : ((featureRes.data ?? []) as { id: string; room_id: string; name: string }[]);
+  const photoStore = photoStoreFromEnv();
+  const issues: IssueView[] = await Promise.all(
+    openIssues(issueRes.error ? [] : ((issueRes.data ?? []) as unknown as LedgerEntry[]))
+      .slice(0, 25)
+      .map(async (i) => {
+        const raw = ((issueRes.data ?? []) as unknown as LedgerEntry[]).find((e) => Number(e.id) === i.id);
+        return {
+          ...i,
+          roomName: rooms.find((r) => r.id === i.roomId)?.name ?? "Room",
+          featureName: featureRows.find((f) => f.id === i.featureId)?.name ?? null,
+          payload: raw?.payload ?? null,
+          photoUrl: photoStore && i.frameSha256 ? await photoStore.signedUrl(property.id, i.frameSha256, 3600) : null,
+        };
+      }),
+  );
+
   const ledger = (ledgerRes.data ?? []) as unknown as LedgerData[];
   const roomName = new Map(rooms.map((r) => [r.id, r.name]));
   const entriesByRoom = new Map<string, ChainEntry[]>();
@@ -158,6 +191,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             <Box className="size-4" aria-hidden="true" />
             Model
           </a>
+          <a href={`/dashboard/properties/${property.id}/custody`} className={button("secondary", "sm")}>
+            <FileText className="size-4" aria-hidden="true" />
+            Condition record
+          </a>
         </div>
       </header>
 
@@ -182,6 +219,16 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
       <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-10">
+          <section>
+            <SectionHeading title="Issues and upkeep" count={issues.length} />
+            <UpkeepPanel
+              issues={issues}
+              tz={tz}
+              now={now}
+              rooms={rooms.map((r) => ({ id: r.id, name: r.name, features: featureRows.filter((f) => f.room_id === r.id).map((f) => ({ id: f.id, name: f.name })) }))}
+            />
+          </section>
+
           <section>
             <SectionHeading title="Stays" count={live.length} />
             <details className="mb-4" open={stays.length === 0}>

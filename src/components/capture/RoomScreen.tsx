@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Camera, Check, Flag, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Camera, Check, Flag, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { baselineStatus, canFinish, crewStatus, guestStatus, type RoomProgress } from "@/lib/capture";
@@ -51,6 +51,7 @@ export function RoomScreen({
   onFinish,
   onPhoto,
   onDamage,
+  onIssue,
   done,
   busyTask,
   onTask,
@@ -67,6 +68,7 @@ export function RoomScreen({
   onFinish: () => void;
   onPhoto: () => void;
   onDamage: () => void;
+  onIssue: () => void;
   /** Task ids recorded for this stay. */
   done: ReadonlySet<string>;
   busyTask: string | null;
@@ -134,6 +136,10 @@ export function RoomScreen({
           <Camera className="size-5" aria-hidden="true" />
           {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}
         </button>
+        <button type="button" onClick={onIssue} className={`${button("secondary", "lg")} mt-3 w-full`}>
+          <AlertTriangle className="size-5" aria-hidden="true" />
+          Report a problem
+        </button>
         <ShotGrid shots={shots} />
       </div>
     );
@@ -179,6 +185,10 @@ export function RoomScreen({
           <Flag className="size-5" aria-hidden="true" />
           Report damage
           {progress.damage > 0 && <span>({progress.damage})</span>}
+        </button>
+        <button type="button" onClick={onIssue} className={`${button("secondary", "lg")} w-full`}>
+          <AlertTriangle className="size-5" aria-hidden="true" />
+          Report a problem
         </button>
         {!progress.finished && (
           <>

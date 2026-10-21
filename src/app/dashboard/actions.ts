@@ -142,8 +142,8 @@ export async function cancelReservation(_prev: ActionState, fd: FormData): Promi
 /** Create a crew or guest link for a stay. The caller must own the property (RLS hides other rows). */
 export async function createLink(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const parsed = z
-    .object({ reservationId: z.guid(), role: z.enum(["guest", "crew"]) })
-    .safeParse({ reservationId: text(fd, "reservationId"), role: text(fd, "role") });
+    .object({ reservationId: z.guid(), role: z.enum(["guest", "crew"]), label: z.string().trim().max(60, "Keep the name under 60 characters.") })
+    .safeParse({ reservationId: text(fd, "reservationId"), role: text(fd, "role"), label: text(fd, "label") });
   if (!parsed.success) return fail("Choose guest or crew link.");
 
   const { supabase } = await signedInClient();
@@ -168,6 +168,7 @@ export async function createLink(_prev: ActionState, fd: FormData): Promise<Acti
       secret,
       origin: requestOrigin(await headers()),
       role: parsed.data.role,
+      label: parsed.data.label,
       stay: { id: data.id, propertyId: data.property_id, startsAt: new Date(data.starts_at), endsAt: new Date(data.ends_at) },
     });
     return {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { CapabilityClaims } from "./capability";
+import { ISSUE_CATEGORIES, ISSUE_REPORTED, ISSUE_RESOLVED, MAINTENANCE_DONE, INSPECTION } from "./issues";
 import { BASELINE_EVENT, FEATURE_STATUSES, FEATURE_STATUS_EVENT } from "./model";
 
 /** Who is making a request. Managers come from Supabase auth; crew/guests from capability links. */
@@ -37,8 +38,12 @@ export const ROLE_EVENTS: Record<"crew" | "guest", readonly string[]> = {
     "photo_verified",
     "restock",
     "damage_report",
+    "issue_reported",
+    "issue_resolved",
+    "maintenance_done",
+    "inspection",
   ],
-  guest: ["guest_arrival_scan", "guest_checkout_scan"],
+  guest: ["guest_arrival_scan", "guest_checkout_scan", "issue_reported"],
 };
 
 export interface RoomRecord {
@@ -76,6 +81,8 @@ export interface LedgerDb {
   verifyChain(roomId: string): Promise<ChainStatus>;
   /** Whether a feature belongs to the room. Optional so a store without features still works. */
   featureInRoom?(roomId: string, featureId: string): Promise<boolean>;
+  /** Whether an issue or damage report with this ledger id exists in the room. */
+  issueInRoom?(roomId: string, issueId: number): Promise<boolean>;
 }
 
 /** An error that maps to an HTTP status (auth failures, missing rows, rejected input). */
@@ -120,6 +127,17 @@ export function validateModelPayload(eventType: string, payload: Record<string, 
     if (!(FEATURE_STATUSES as readonly unknown[]).includes(payload.status)) bad("feature_status needs a valid status");
     if (payload.note !== undefined && typeof payload.note !== "string") bad("note must be text");
   }
+  if (eventType === ISSUE_REPORTED) {
+    if (typeof payload.note !== "string" || !payload.note.trim()) bad("describe the problem in a note");
+    if ((payload.note as string).length > 500) bad("note is too long");
+    if (payload.category !== undefined && !(ISSUE_CATEGORIES as readonly unknown[]).includes(payload.category)) bad("unknown category");
+  }
+  if (eventType === ISSUE_RESOLVED && !(typeof payload.issueId === "number" && Number.isInteger(payload.issueId) && payload.issueId > 0)) {
+    bad("issue_resolved needs the issueId it resolves");
+  }
+  if ((eventType === ISSUE_REPORTED || eventType === MAINTENANCE_DONE || eventType === INSPECTION) && payload.featureId !== undefined && !z.guid().safeParse(payload.featureId).success) {
+    bad("featureId must be a feature id");
+  }
   if (eventType === BASELINE_EVENT && payload.itemId !== undefined && !z.guid().safeParse(payload.itemId).success) {
     bad("itemId must be a feature id");
   }
@@ -149,19 +167,28 @@ export async function appendLedgerEvent(
   if (!room) throw new LedgerAuthError("room not found", 404);
   authorizeEvent(principal, room, input.eventType);
   validateModelPayload(input.eventType, input.payload);
-  const featureId = input.eventType === FEATURE_STATUS_EVENT ? input.payload.featureId : input.eventType === BASELINE_EVENT ? input.payload.itemId : undefined;
+  const featureId = input.eventType === BASELINE_EVENT ? input.payload.itemId : input.payload.featureId;
   if (typeof featureId === "string" && db.featureInRoom && !(await db.featureInRoom(room.id, featureId))) {
     throw new LedgerAuthError("that feature is not in this room", 422);
+  }
+  if (input.eventType === ISSUE_RESOLVED && db.issueInRoom && !(await db.issueInRoom(room.id, input.payload.issueId as number))) {
+    throw new LedgerAuthError("that issue is not in this room", 422);
   }
 
   if (input.frameSha256 && photos && !(await photos.exists(room.propertyId, input.frameSha256))) {
     throw new LedgerAuthError("photo has not been uploaded", 409);
   }
 
+  // Who acted is stamped by the server, never taken from the request: it is part of the chain of custody.
   const payload: Record<string, unknown> = { ...input.payload };
+  delete payload.actorId;
+  delete payload.issuedTo;
   if (principal.kind === "capability") {
     delete payload.reservationId;
     if (principal.claims.reservationId) payload.reservationId = principal.claims.reservationId;
+    if (principal.claims.label) payload.issuedTo = principal.claims.label;
+  } else {
+    payload.actorId = principal.userId;
   }
 
   return db.insertEvent({

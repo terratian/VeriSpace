@@ -125,6 +125,7 @@ export function baselineStatus(p: RoomProgress, features?: { done: number; total
 }
 
 export const INTENTS = {
+  issue: { eventType: "issue_reported", title: "Report a problem", noteLabel: "What needs attention?", noteRequired: true, saveLabel: "Send report" },
   baselineRoom: { eventType: "baseline_photo", title: "Baseline photo", noteLabel: "What does this show? (optional)", noteRequired: false, saveLabel: "Record baseline" },
   crewPhoto: { eventType: "photo_verified", title: "Verification photo", noteLabel: "Note (optional)", noteRequired: false, saveLabel: "Record photo" },
   crewDamage: { eventType: "damage_report", title: "Report damage", noteLabel: "What is damaged?", noteRequired: true, saveLabel: "Record damage" },

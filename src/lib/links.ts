@@ -40,11 +40,13 @@ export async function issueLink(args: {
   role: CapabilityRole;
   stay: Stay;
   crewHours?: number;
+  /** Who the link is for, such as "Maria, Sparkle Cleaning". Recorded on every entry made with it. */
+  label?: string;
 }): Promise<IssuedLink> {
   const window = linkWindow(args.role, args.stay, args.crewHours);
   const token = await signCapability(
     args.secret,
-    { role: args.role, propertyId: args.stay.propertyId, reservationId: args.stay.id },
+    { role: args.role, propertyId: args.stay.propertyId, reservationId: args.stay.id, label: args.label?.trim() || undefined },
     window,
   );
   return { url: `${args.origin}/${args.role}/${token}`, role: args.role, ...window };

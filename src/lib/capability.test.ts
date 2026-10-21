@@ -87,3 +87,18 @@ describe("capability links", () => {
     ).rejects.toThrow(/after notBefore/);
   });
 });
+
+describe("link labels", () => {
+  it("carries who the link was issued to", async () => {
+    const secret = "x".repeat(40);
+    const token = await signCapability(secret, { role: "crew", propertyId: "p", label: "Maria, Sparkle Cleaning" }, { notBefore: new Date(Date.now() - 1000), expiresAt: new Date(Date.now() + 60_000) });
+    const r = await verifyCapability(secret, token);
+    expect(r.ok && r.claims.label).toBe("Maria, Sparkle Cleaning");
+  });
+  it("is absent when none was given", async () => {
+    const secret = "x".repeat(40);
+    const token = await signCapability(secret, { role: "guest", propertyId: "p" }, { notBefore: new Date(Date.now() - 1000), expiresAt: new Date(Date.now() + 60_000) });
+    const r = await verifyCapability(secret, token);
+    expect(r.ok && r.claims.label).toBeUndefined();
+  });
+});

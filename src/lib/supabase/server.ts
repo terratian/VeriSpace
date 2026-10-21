@@ -52,6 +52,18 @@ export function supabaseLedgerDb(client: SupabaseClient = serviceClient()): Ledg
       return !!data;
     },
 
+    async issueInRoom(roomId, issueId): Promise<boolean> {
+      const { data, error } = await client
+        .from("room_state_ledger")
+        .select("id")
+        .eq("id", issueId)
+        .eq("room_id", roomId)
+        .in("event_type", ["issue_reported", "damage_report"])
+        .maybeSingle();
+      if (error) throw new Error(`issue lookup failed: ${error.message}`);
+      return !!data;
+    },
+
     async verifyChain(roomId): Promise<ChainStatus> {
       const { data, error } = await client.rpc("verify_room_chain", { p_room_id: roomId });
       if (error) throw new Error(`chain verification failed: ${error.message}`);
