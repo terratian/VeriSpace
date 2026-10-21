@@ -9,6 +9,7 @@ import { EMPTY_PROCEDURES } from "@/lib/guide";
 import { BASELINE_EVENT, toFeature } from "@/lib/model";
 import { storageConfigFromEnv } from "@/lib/storage";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
+import { fmtDateTime } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Baseline walkthrough" };
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function WalkPage({ params }: { params: Promise<{ id: strin
 
   const { data: property, error } = await supabase
     .from("properties")
-    .select("id, name, rooms(id, name)")
+    .select("id, name, timezone, rooms(id, name)")
     .eq("id", id)
     .order("created_at", { referencedTable: "rooms" })
     .maybeSingle();
@@ -43,6 +44,26 @@ export default async function WalkPage({ params }: { params: Promise<{ id: strin
     );
   }
   if (!property) notFound();
+
+  const nowIso = new Date().toISOString();
+  const { data: inHouse } = await supabase
+    .from("reservations")
+    .select("ends_at")
+    .eq("property_id", id)
+    .lte("starts_at", nowIso)
+    .gt("ends_at", nowIso)
+    .limit(1)
+    .maybeSingle();
+  if (inHouse) {
+    return (
+      <div className="py-8">
+        <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Properties", href: "/dashboard" }, { label: property.name, href: `/dashboard/properties/${property.id}` }, { label: "Walkthrough" }]} />
+        <p role="status" className="mt-6 max-w-[60ch] rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-amber">
+          A guest is in house until {fmtDateTime(inHouse.ends_at, property.timezone as string)}. Baseline photos should show the unit as it should be, so the walkthrough waits until checkout.
+        </p>
+      </div>
+    );
+  }
 
   const rooms = (property.rooms ?? []) as { id: string; name: string }[];
   const roomIds = rooms.map((r) => r.id);

@@ -7,6 +7,8 @@ import { describeDbError } from "@/lib/db-errors";
 import { LedgerAuthError, appendLedgerEvent } from "@/lib/ledger";
 import { FEATURE_STATUS_EVENT, FT, featureSchema, layoutSchema, statusSchema } from "@/lib/model";
 import { signedInClient } from "@/lib/session";
+import { fmtDateTime } from "@/lib/time";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseLedgerDb } from "@/lib/supabase/server";
 
 const text = (fd: FormData, key: string) => String(fd.get(key) ?? "");
@@ -14,6 +16,29 @@ const fail = (error: string): ActionState => ({ ok: false, error });
 const firstIssue = (err: z.ZodError) => err.issues[0]?.message ?? "Check the form and try again.";
 const refresh = () => revalidatePath("/dashboard", "layout");
 const meters = (ft: number | null) => (ft === null ? null : Math.round(ft * FT * 100) / 100);
+
+/**
+ * Changes to the unit itself (layout, adding or removing features) wait until no guest is in house.
+ * Status changes don't: a hot tub can break mid-stay, and the record should say so. Returns the
+ * message to show, or null when the unit is empty.
+ */
+async function occupiedMessage(supabase: SupabaseClient, roomId: string): Promise<string | null> {
+  const { data: room } = await supabase.from("rooms").select("property_id, properties(timezone)").eq("id", roomId).maybeSingle();
+  if (!room) return null;
+  const now = new Date().toISOString();
+  const { data: stay } = await supabase
+    .from("reservations")
+    .select("ends_at")
+    .eq("property_id", room.property_id)
+    .lte("starts_at", now)
+    .gt("ends_at", now)
+    .order("ends_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!stay) return null;
+  const tz = (room.properties as unknown as { timezone: string } | null)?.timezone ?? "UTC";
+  return `A guest is in house until ${fmtDateTime(stay.ends_at, tz)}. Changes to the unit wait until checkout.`;
+}
 
 // Row Level Security enforces ownership on these statements, so another manager's room or feature
 // behaves like a missing one.
@@ -34,6 +59,8 @@ export async function saveRoomLayout(_prev: ActionState, fd: FormData): Promise<
   if ((p.planX === null) !== (p.planY === null)) return fail("Set both position values, or leave both blank.");
 
   const { supabase } = await signedInClient();
+  const busy = await occupiedMessage(supabase, p.roomId);
+  if (busy) return fail(busy);
   const { data, error } = await supabase
     .from("rooms")
     .update({
@@ -67,6 +94,8 @@ export async function addFeature(_prev: ActionState, fd: FormData): Promise<Acti
   const f = parsed.data;
 
   const { supabase } = await signedInClient();
+  const busy = await occupiedMessage(supabase, f.roomId);
+  if (busy) return fail(busy);
   const { error } = await supabase
     .from("room_features")
     .insert({ room_id: f.roomId, kind: f.kind, name: f.name, pos_x: f.x, pos_y: f.y, advertised: f.advertised, details: f.details });
@@ -80,6 +109,10 @@ export async function deleteFeature(_prev: ActionState, fd: FormData): Promise<A
   const id = z.guid().safeParse(text(fd, "id"));
   if (!id.success) return fail("Feature not found.");
   const { supabase } = await signedInClient();
+  const { data: feature } = await supabase.from("room_features").select("room_id").eq("id", id.data).maybeSingle();
+  if (!feature) return fail("Feature not found.");
+  const busy = await occupiedMessage(supabase, feature.room_id);
+  if (busy) return fail(busy);
   const { error } = await supabase.from("room_features").delete().eq("id", id.data);
   if (error) return fail(describeDbError(error));
   refresh();

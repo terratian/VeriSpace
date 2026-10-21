@@ -23,6 +23,7 @@ import {
   type FeatureStatus,
 } from "@/lib/model";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
+import { fmtDateTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +68,7 @@ export default async function SetupPage({
 
   const { data: property, error } = await supabase
     .from("properties")
-    .select("id, name, rooms(id, name, width_m, length_m, height_m, floor, plan_x, plan_y)")
+    .select("id, name, timezone, rooms(id, name, width_m, length_m, height_m, floor, plan_x, plan_y)")
     .eq("id", id)
     .order("created_at", { referencedTable: "rooms" })
     .maybeSingle();
@@ -79,6 +80,17 @@ export default async function SetupPage({
     );
   }
   if (!property) notFound();
+
+  const nowIso = new Date().toISOString();
+  const { data: inHouse } = await supabase
+    .from("reservations")
+    .select("ends_at")
+    .eq("property_id", id)
+    .lte("starts_at", nowIso)
+    .gt("ends_at", nowIso)
+    .order("ends_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const rooms = (property.rooms ?? []) as unknown as RoomRow[];
   const roomIds = rooms.map((r) => r.id);
@@ -169,6 +181,12 @@ export default async function SetupPage({
           ))}
         </ol>
       </nav>
+
+      {inHouse && (step === "layout" || step === "features" || step === "baseline") && (
+        <p role="status" className="mt-6 rounded-lg border border-amber/40 bg-amber/10 px-4 py-3 text-sm text-amber">
+          A guest is in house until {fmtDateTime(inHouse.ends_at, property.timezone as string)}. Layout, features and baseline photos wait until checkout. You can still record a feature&apos;s status in Review.
+        </p>
+      )}
 
       {rooms.length === 0 ? (
         <div className="mt-8">

@@ -80,3 +80,4 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 - Guests see advertised features and any that are out of service in their room (`LinkGate`).
 - Dev previews: `/dev-preview/model` (viewer), `/dev-preview?role=manager|guest|crew`. Browser test: `scripts/tasks-flow.mjs`.
 - Not built yet: maintenance tickets that change a feature's status, per-asset data (speed tests, sensor readings, subscriptions), real 3D scans, per-asset chains. Apply the migration in the Supabase SQL editor first.
+- Occupancy rule: layout, adding/removing features and the baseline walk are blocked while a guest is in house (stay covering now); they resume at checkout. Feature status changes are always allowed. No push messages to guests: they see the current status when they open their link. Enforced in `src/app/dashboard/model-actions.ts` (`occupiedMessage`) and on the setup and walk pages. The baseline API itself does not check occupancy.
