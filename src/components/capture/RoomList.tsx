@@ -3,10 +3,17 @@
 import { ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import type { Tone } from "@/components/ui/styles";
+import type { ChecklistItem, RoomContent } from "@/lib/guide";
 
 export interface RoomInfo {
   id: string;
   name: string;
+  /** What the manager wrote about the room for guests. */
+  content: RoomContent[];
+  /** The room's tasks for the crew. */
+  checklist: ChecklistItem[];
+  /** Task ids already recorded for this stay. */
+  doneItems: string[];
 }
 
 export interface RoomStatus {

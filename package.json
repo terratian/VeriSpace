@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:db": "bash supabase/tests/ledger_test.sh && bash supabase/tests/rls_test.sh"
+    "test:db": "bash supabase/tests/ledger_test.sh && bash supabase/tests/rls_test.sh && bash supabase/tests/reservations_test.sh && bash supabase/tests/guides_test.sh"
   },
   "dependencies": {
     "@fontsource-variable/instrument-sans": "^5.3.0",

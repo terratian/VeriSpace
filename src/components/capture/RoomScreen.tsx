@@ -4,7 +4,10 @@ import { ArrowLeft, Camera, Check, Flag, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { canFinish, crewStatus, guestStatus, type RoomProgress } from "@/lib/capture";
+import type { ChecklistItem } from "@/lib/guide";
+import { Checklist } from "./Checklist";
 import type { RoomInfo } from "./RoomList";
+import { RoomGuide } from "./RoomGuide";
 
 export interface SessionShot {
   key: string;
@@ -48,6 +51,9 @@ export function RoomScreen({
   onFinish,
   onPhoto,
   onDamage,
+  done,
+  busyTask,
+  onTask,
 }: {
   role: "crew" | "guest";
   room: RoomInfo;
@@ -61,6 +67,10 @@ export function RoomScreen({
   onFinish: () => void;
   onPhoto: () => void;
   onDamage: () => void;
+  /** Task ids recorded for this stay. */
+  done: ReadonlySet<string>;
+  busyTask: string | null;
+  onTask: (item: ChecklistItem) => void;
 }) {
   const back = (
     <button type="button" onClick={onBack} className="-ml-2 mb-4 inline-flex h-11 items-center gap-2 rounded-lg px-2 text-sm text-ash hover:text-white">
@@ -89,6 +99,7 @@ export function RoomScreen({
             {error}
           </p>
         )}
+        <RoomGuide content={room.content} />
         <button type="button" onClick={onPhoto} className={`${button("primary", "lg")} mt-6 w-full`}>
           <Camera className="size-5" aria-hidden="true" />
           {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}
@@ -98,10 +109,12 @@ export function RoomScreen({
     );
   }
 
-  const status = crewStatus(progress);
-  const finishable = canFinish(progress);
+  const tasksDone = room.checklist.filter((i) => done.has(i.id)).length;
+  const tasksLeft = room.checklist.length - tasksDone;
+  const status = crewStatus(progress, { done: tasksDone, total: room.checklist.length });
+  const finishable = canFinish(progress, tasksLeft);
   // One primary action at a time: whatever the next step is.
-  const next: "start" | "photo" | "finish" | null = !progress.started ? "start" : progress.photos === 0 ? "photo" : finishable ? "finish" : null;
+  const next: "start" | "photo" | "finish" | null = !progress.started ? "start" : tasksLeft > 0 ? null : progress.photos === 0 ? "photo" : finishable ? "finish" : null;
   const variant = (step: "start" | "photo" | "finish") => (next === step ? "primary" : "secondary");
 
   return (
@@ -119,13 +132,16 @@ export function RoomScreen({
         </p>
       )}
 
+      {!progress.started && (
+        <button type="button" onClick={onStart} disabled={busy} className={`${button(variant("start"), "lg")} mt-6 w-full`}>
+          {busy && <Loader2 className="size-5 animate-spin" aria-hidden="true" />}
+          Start cleaning
+        </button>
+      )}
+
+      <Checklist items={room.checklist} done={done} busyId={busyTask} onTick={onTask} />
+
       <div className="mt-6 flex flex-col gap-3">
-        {!progress.started && (
-          <button type="button" onClick={onStart} disabled={busy} className={`${button(variant("start"), "lg")} w-full`}>
-            {busy && <Loader2 className="size-5 animate-spin" aria-hidden="true" />}
-            Start cleaning
-          </button>
-        )}
         <button type="button" onClick={onPhoto} className={`${button(variant("photo"), "lg")} w-full`}>
           <Camera className="size-5" aria-hidden="true" />
           Take verification photo
@@ -144,7 +160,11 @@ export function RoomScreen({
             </button>
             {!finishable && (
               <p className="-mt-1 text-[13px] text-mute">
-                {!progress.started ? "Start cleaning first." : "Take a verification photo to finish this room."}
+                {!progress.started
+                  ? "Start cleaning first."
+                  : tasksLeft > 0
+                    ? `${tasksLeft} ${tasksLeft === 1 ? "task" : "tasks"} left.`
+                    : "Take a verification photo to finish this room."}
               </p>
             )}
           </>

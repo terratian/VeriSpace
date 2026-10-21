@@ -1,10 +1,11 @@
-import { Plus } from "lucide-react";
+import { ListChecks, Plus } from "lucide-react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { ActivityList, type ActivityItem } from "@/components/dashboard/ActivityList";
 import { AddRoomForm } from "@/components/dashboard/AddRoomForm";
 import { AddStayForm } from "@/components/dashboard/AddStayForm";
+import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
 import { StayRow, type StayData } from "@/components/dashboard/StayRow";
@@ -13,6 +14,7 @@ import { Badge, Breadcrumbs, DbError, EmptyState, Panel, SectionHeading } from "
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
 import { eventLabel } from "@/lib/labels";
+import { computeReadiness, type ReadyEvent } from "@/lib/readiness";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { zoneAbbreviation } from "@/lib/time";
 import { updateProperty } from "../../actions";
@@ -89,6 +91,32 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const live = stays.filter((s) => new Date(s.ends_at) > now);
   const past = stays.filter((s) => new Date(s.ends_at) <= now).reverse().slice(0, 8);
 
+  // Readiness follows the stay whose turnover crew most recently worked: the latest ended stay, else the next one.
+  const turnover = past[0] ?? live[0] ?? null;
+  let readiness = null as ReturnType<typeof computeReadiness> | null;
+  if (turnover && rooms.length > 0) {
+    const [itemsRes, eventsRes] = await Promise.all([
+      supabase.from("room_checklist_items").select("id, room_id, requires_photo").in("room_id", roomIds),
+      supabase
+        .from("room_state_ledger")
+        .select("room_id, event_type, payload, frame_sha256")
+        .in("room_id", roomIds)
+        .in("event_type", ["clean_start", "clean_end", "checklist_item", "damage_report"])
+        .eq("payload->>reservationId", turnover.id)
+        .limit(1000),
+    ]);
+    // If the guide migration isn't applied the item query fails; readiness then rests on finished rooms alone.
+    const items = itemsRes.error ? [] : ((itemsRes.data ?? []) as { id: string; room_id: string; requires_photo: boolean | null }[]);
+    readiness = computeReadiness(
+      rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        items: items.filter((i) => i.room_id === r.id).map((i) => ({ id: i.id, requiresPhoto: !!i.requires_photo })),
+      })),
+      eventsRes.error ? [] : ((eventsRes.data ?? []) as unknown as ReadyEvent[]),
+    );
+  }
+
   const ledger = (ledgerRes.data ?? []) as unknown as LedgerData[];
   const roomName = new Map(rooms.map((r) => [r.id, r.name]));
   const entriesByRoom = new Map<string, ChainEntry[]>();
@@ -120,8 +148,21 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           <h1 className="text-3xl font-semibold">{property.name}</h1>
           <p className="mt-1.5 text-mute">{property.address || "No address added"}</p>
         </div>
-        <Badge>{zoneLabel}</Badge>
+        <div className="flex items-center gap-2">
+          <Badge>{zoneLabel}</Badge>
+          <a href={`/dashboard/properties/${property.id}/guide`} className={button("secondary", "sm")}>
+            <ListChecks className="size-4" aria-hidden="true" />
+            Set up guide
+          </a>
+        </div>
       </header>
+
+      {readiness && turnover && (
+        <ReadinessPanel
+          readiness={readiness}
+          stayLabel={`${turnover.guest_name?.trim() || "Guest"}, checkout ${new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: tz }).format(new Date(turnover.ends_at))}`}
+        />
+      )}
 
       <details className="mt-4">
         <summary className="inline cursor-pointer text-sm text-mute hover:text-white">Property settings</summary>

@@ -91,6 +91,9 @@ export interface EventInput {
   roomId: string;
   eventType: string;
   note?: string;
+  /** The checklist task this entry records, for crew ticking off a room's tasks. */
+  itemId?: string;
+  itemLabel?: string;
   shot?: Pick<Shot, "sha256" | "width" | "height" | "blob" | "source">;
 }
 
@@ -99,6 +102,10 @@ export function payloadFor(input: EventInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {};
   const note = input.note?.trim();
   if (note) payload.note = note.slice(0, 500);
+  if (input.itemId) {
+    payload.itemId = input.itemId;
+    if (input.itemLabel) payload.label = input.itemLabel.slice(0, 160);
+  }
   if (input.shot) {
     if (input.shot.width) payload.width = input.shot.width;
     if (input.shot.height) payload.height = input.shot.height;

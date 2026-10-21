@@ -3,7 +3,9 @@
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { EmptyState, Logo } from "@/components/ui/primitives";
-import { EMPTY_PROGRESS, INTENTS, crewStatus, guestStatus, progressKey, type Intent, type Shot } from "@/lib/capture";
+import { EMPTY_PROGRESS, INTENTS, crewStatus, guestStatus, progressKey, taskIntent, type Intent, type Shot } from "@/lib/capture";
+import type { ChecklistItem, Procedures } from "@/lib/guide";
+import { GuestProcedures } from "./GuestProcedures";
 import { CaptureError, sendEvent, type RecordedEvent } from "@/lib/captureClient";
 import { CameraSheet } from "./CameraSheet";
 import { ReviewSheet } from "./ReviewSheet";
@@ -21,6 +23,8 @@ export interface CaptureAppProps {
   expiresAt: string;
   rooms: RoomInfo[];
   storageEnabled: boolean;
+  /** Check-in, checkout and house-rule text, shown to guests. */
+  guide: Procedures;
 }
 
 type Mode = "arrival" | "departure";
@@ -43,6 +47,9 @@ export default function CaptureApp(props: CaptureAppProps) {
   const [toast, setToast] = useState("");
   const [shots, setShots] = useState<Record<string, SessionShot[]>>({});
   const [validUntil, setValidUntil] = useState("");
+  const [checked, setChecked] = useState<Set<string>>(() => new Set(rooms.flatMap((r) => r.doneItems)));
+  const [pendingTask, setPendingTask] = useState<ChecklistItem | null>(null);
+  const [busyTask, setBusyTask] = useState<string | null>(null);
   const keptUrls = useRef<string[]>([]);
 
   useEffect(() => {
@@ -73,6 +80,28 @@ export default function CaptureApp(props: CaptureAppProps) {
     setRoomId(r?.id ?? null);
   }
 
+  const tasksOf = (r: RoomInfo) => ({ done: r.checklist.filter((i) => checked.has(i.id)).length, total: r.checklist.length });
+
+  async function tick(item: ChecklistItem) {
+    if (!room || checked.has(item.id)) return;
+    if (item.requiresPhoto) {
+      setPendingTask(item);
+      setCamera(taskIntent(item.label));
+      return;
+    }
+    setBusyTask(item.id);
+    setError("");
+    try {
+      const event = await sendEvent(token, { roomId: room.id, eventType: "checklist_item", itemId: item.id, itemLabel: item.label });
+      setChecked((prev) => new Set(prev).add(item.id));
+      setToast(`Recorded as entry ${event.seq} in ${room.name}`);
+    } catch (err) {
+      setError(err instanceof CaptureError ? err.message : "Something went wrong. Try again.");
+    } finally {
+      setBusyTask(null);
+    }
+  }
+
   function discard(shot: Shot) {
     URL.revokeObjectURL(shot.url);
     setReview(null);
@@ -82,6 +111,8 @@ export default function CaptureApp(props: CaptureAppProps) {
     if (!room) return;
     const key = keyFor(room.id);
     bump(key, intent.eventType === "damage_report" ? "damage" : "photo");
+    if (pendingTask && intent.eventType === "checklist_item") setChecked((prev) => new Set(prev).add(pendingTask.id));
+    setPendingTask(null);
     keptUrls.current.push(shot.url);
     setShots((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), { key: `${event.id}`, url: shot.url, seq: event.seq }] }));
     setReview(null);
@@ -128,8 +159,17 @@ export default function CaptureApp(props: CaptureAppProps) {
               setRoomId(null);
             })
           }
-          onPhoto={() => setCamera(photoIntent)}
-          onDamage={() => setCamera(INTENTS.crewDamage)}
+          onPhoto={() => {
+            setPendingTask(null);
+            setCamera(photoIntent);
+          }}
+          onDamage={() => {
+            setPendingTask(null);
+            setCamera(INTENTS.crewDamage);
+          }}
+          done={checked}
+          busyTask={busyTask}
+          onTask={tick}
         />
       ) : (
         <>
@@ -179,12 +219,14 @@ export default function CaptureApp(props: CaptureAppProps) {
               <div className="mt-4">
                 <RoomList
                   rooms={rooms}
-                  statusFor={(r) => (role === "crew" ? crewStatus(progressOf(r.id)) : guestStatus(progressOf(r.id)))}
+                  statusFor={(r) => (role === "crew" ? crewStatus(progressOf(r.id), tasksOf(r)) : guestStatus(progressOf(r.id)))}
                   onOpen={open}
                 />
               </div>
             </>
           )}
+
+          {role === "guest" && <GuestProcedures guide={props.guide} />}
 
           {validUntil && <p className="mt-8 text-[13px] text-mute">This link works until {validUntil}.</p>}
         </>
@@ -193,7 +235,10 @@ export default function CaptureApp(props: CaptureAppProps) {
       {camera && room && (
         <CameraSheet
           title={`${camera.title}, ${room.name}`}
-          onClose={() => setCamera(null)}
+          onClose={() => {
+            setCamera(null);
+            setPendingTask(null);
+          }}
           onShot={(shot) => {
             setReview({ intent: camera, shot });
             setCamera(null);
@@ -213,7 +258,11 @@ export default function CaptureApp(props: CaptureAppProps) {
             discard(review.shot);
             setCamera(review.intent);
           }}
-          onCancel={() => discard(review.shot)}
+          onCancel={() => {
+            discard(review.shot);
+            setPendingTask(null);
+          }}
+          task={pendingTask && review.intent.eventType === "checklist_item" ? { id: pendingTask.id, label: pendingTask.label } : undefined}
           onRecorded={(event, shot) => recorded(event, shot, review.intent)}
         />
       )}

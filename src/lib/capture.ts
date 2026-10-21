@@ -57,14 +57,16 @@ export function applyAction(map: ProgressMap, key: string, action: CaptureAction
   return { ...map, [key]: next };
 }
 
-/** A room can be finished once it has been started, has a photo, and isn't already finished. */
-export function canFinish(p: RoomProgress): boolean {
-  return p.started && p.photos > 0 && !p.finished;
+/** A room can be finished once it has been started, has a photo, has every task recorded, and isn't already finished. */
+export function canFinish(p: RoomProgress, tasksLeft = 0): boolean {
+  return p.started && p.photos > 0 && !p.finished && tasksLeft === 0;
 }
 
-export function crewStatus(p: RoomProgress): { label: string; tone: "neutral" | "amber" | "mint" } {
+export function crewStatus(p: RoomProgress, tasks?: { done: number; total: number }): { label: string; tone: "neutral" | "amber" | "mint" } {
   if (p.finished) return { label: "Done", tone: "mint" };
-  if (p.started || p.photos > 0) return { label: "In progress", tone: "amber" };
+  if (p.started || p.photos > 0 || (tasks && tasks.done > 0)) {
+    return { label: tasks && tasks.total > 0 ? `${tasks.done} of ${tasks.total} tasks` : "In progress", tone: "amber" };
+  }
   return { label: "Not started", tone: "neutral" };
 }
 
@@ -99,6 +101,17 @@ export interface Intent {
   noteLabel: string;
   noteRequired: boolean;
   saveLabel: string;
+}
+
+/** The camera and review screens for a task that needs a photo, titled with the task. */
+export function taskIntent(label: string): Intent {
+  return {
+    eventType: "checklist_item",
+    title: label.length > 60 ? `${label.slice(0, 57)}...` : label,
+    noteLabel: "Note (optional)",
+    noteRequired: false,
+    saveLabel: "Record task",
+  };
 }
 
 export const INTENTS = {

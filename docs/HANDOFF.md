@@ -62,3 +62,9 @@ Each chunk can be done and checked on its own.
 - Next 16 uses `src/proxy.ts`, not `middleware.ts`.
 - `src/app/dev-preview/page.tsx` renders the capture screen with sample rooms for browser tests. It returns 404 in production.
 - The headless browser test needs `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`.
+
+## Property guide, crew tasks, readiness (migration 20261022000000_property_guides.sql)
+- Manager builds the guide at `/dashboard/properties/[id]/guide`: check-in/checkout/house rules, per-room tutorials, allergen notes, and crew tasks (optionally needing a photo).
+- Guest link shows procedures and each room's guide (allergens first). Crew link shows each room's tasks; ticking records a `checklist_item` ledger entry with `payload.itemId` (photo tasks also carry the frame hash). Finish room is gated until all tasks are recorded.
+- Property page shows readiness for the latest stay, computed from the ledger (`src/lib/readiness.ts`): ready = every room finished and every task recorded.
+- Apply the migration in the Supabase SQL editor; screens degrade gracefully until then. Browser check: `scripts/tasks-flow.mjs`.

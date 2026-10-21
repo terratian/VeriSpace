@@ -21,6 +21,7 @@ export function ReviewSheet({
   onRetake,
   onCancel,
   onRecorded,
+  task,
 }: {
   token: string;
   roomId: string;
@@ -31,6 +32,8 @@ export function ReviewSheet({
   onRetake: () => void;
   onCancel: () => void;
   onRecorded: (event: RecordedEvent, shot: Shot) => void;
+  /** The checklist task this photo completes, when it was taken for one. */
+  task?: { id: string; label: string };
 }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,7 +52,7 @@ export function ReviewSheet({
         await uploadShot(token, roomId, shot);
         uploaded.current = true;
       }
-      const event = await sendEvent(token, { roomId, eventType: intent.eventType, note, shot });
+      const event = await sendEvent(token, { roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label });
       onRecorded(event, shot);
     } catch (err) {
       if (err instanceof CaptureError) {
