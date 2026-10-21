@@ -80,8 +80,9 @@ export function ReviewSheet({
           <p className="text-[13px] text-mute">{roomName}</p>
 
           <div className="mt-3">
-            <p className="mb-1 text-[13px] text-mute">Fingerprint, calculated on this phone ({size})</p>
+            <p className="mb-1 text-[13px] text-mute">Fingerprint, calculated on this phone</p>
             <Fingerprint hash={shot.sha256} />
+            <p className="mt-1 text-[13px] text-mute">{size}</p>
           </div>
 
           <div className="mt-4">

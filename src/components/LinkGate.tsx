@@ -25,10 +25,10 @@ function LinkProblem({ reason }: { reason: keyof typeof PROBLEMS }) {
   return (
     <main className="mx-auto max-w-[480px] px-5 py-16">
       <Logo className="text-[15px]" />
-      <h1 role="alert" className="mt-12 text-[26px] font-semibold leading-tight">
-        {title}
-      </h1>
-      <p className="mt-2 max-w-[40ch] text-ash">{body}</p>
+      <div role="alert" className="mt-12">
+        <h1 className="text-[26px] font-semibold leading-tight">{title}</h1>
+        <p className="mt-2 max-w-[40ch] text-ash">{body}</p>
+      </div>
     </main>
   );
 }

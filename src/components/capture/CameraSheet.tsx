@@ -148,7 +148,7 @@ export function CameraSheet({ title, onShot, onClose }: { title: string; onShot:
         />
 
         {phase === "live" && (
-          <div className="pointer-events-none absolute inset-6">
+          <div className="pointer-events-none absolute inset-x-6 bottom-6 top-24">
             <Corner className="left-0 top-0 rounded-tl-sm border-l-2 border-t-2" />
             <Corner className="right-0 top-0 rounded-tr-sm border-r-2 border-t-2" />
             <Corner className="bottom-0 left-0 rounded-bl-sm border-b-2 border-l-2" />
