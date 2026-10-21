@@ -68,3 +68,6 @@ Each chunk can be done and checked on its own.
 - Guest link shows procedures and each room's guide (allergens first). Crew link shows each room's tasks; ticking records a `checklist_item` ledger entry with `payload.itemId` (photo tasks also carry the frame hash). Finish room is gated until all tasks are recorded.
 - Property page shows readiness for the latest stay, computed from the ledger (`src/lib/readiness.ts`): ready = every room finished and every task recorded.
 - Apply the migration in the Supabase SQL editor; screens degrade gracefully until then. Browser check: `scripts/tasks-flow.mjs`.
+
+## Theme and dashboard
+Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-dark surfaces such as the camera use `data-theme="dark"`). Dashboard metrics and calendar logic: `src/lib/overview.ts`; sample-data preview at `/dev-preview/dashboard` (dev only). Phone testing: `docs/PHONE_TESTING.md`. SMS plan: `docs/design/sms-plivo.md`.

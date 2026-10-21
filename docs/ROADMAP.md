@@ -26,3 +26,8 @@
 - Dispute evidence export
 
 *Timelines are targets from the initial planning session, not commitments.*
+
+## Added 2026-10-21
+- Done: property guide builder, crew task checklists, guest guide, turnover readiness, light theme, dashboard metrics and 14-day calendar.
+- Next, in order: SMS touchpoints and guest guide delivery (design: `docs/design/sms-plivo.md`), assets and maintenance module, geofencing, baseline scan, 3D viewport.
+- Later: staging and amenity standards, direct booking and payments, local recommendations.
