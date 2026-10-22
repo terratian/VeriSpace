@@ -1,0 +1,23 @@
+// Browser check of the layout studio demo. Needs `npm run dev -- -p 3997` and playwright-core.
+import { chromium } from "playwright-core";
+const base = process.env.BASE ?? "http://localhost:3997";
+const b = await chromium.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
+const p = await b.newPage({ viewport: { width: 1280, height: 900 } });
+const errs = [];
+p.on("pageerror", (e) => errs.push(e.message));
+await p.goto(`${base}/dev-preview/layout`, { waitUntil: "networkidle" });
+const room = p.getByText("Living Room").first();
+const box = await room.boundingBox();
+console.log("living room found:", Boolean(box));
+await p.mouse.move(box.x + 10, box.y + 10);
+await p.mouse.down();
+await p.mouse.move(box.x + 90, box.y + 50, { steps: 8 });
+await p.mouse.up();
+const after = await room.boundingBox();
+console.log("moved by", Math.round(after.x - box.x), Math.round(after.y - box.y));
+await p.screenshot({ path: process.env.SHOT ?? "layout.png" });
+await p.goto(`${base}/demo`);
+console.log("demo heading:", await p.textContent("h1"));
+console.log("health:", JSON.stringify(await (await p.request.get(`${base}/api/health`)).json()));
+console.log("page errors:", errs);
+await b.close();

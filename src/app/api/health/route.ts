@@ -1,3 +1,4 @@
+import { demoEnabled } from "@/lib/demo";
 /**
  * What this deployment has configured, with no secrets: booleans and the commit it was built from.
  * Open it after deploying to see at a glance what is missing.
@@ -18,7 +19,7 @@ export function GET() {
       capabilitySecret: set("CAPABILITY_SECRET"),
       appOrigin: set("APP_ORIGIN"),
       photoStorage: set("STORAGE_ENDPOINT") && set("STORAGE_BUCKET") && set("STORAGE_ACCESS_KEY_ID") && set("STORAGE_SECRET_ACCESS_KEY"),
-      demoPages: process.env.ENABLE_DEMO === "1",
+      demoPages: demoEnabled(),
     },
   });
 }
