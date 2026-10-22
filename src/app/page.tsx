@@ -56,7 +56,7 @@ export default function Home() {
         <section className="mx-auto grid max-w-[1120px] items-center gap-12 px-4 pb-20 pt-12 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
           <div>
             <h1 className="max-w-[14ch] text-[40px] font-semibold leading-[1.02] sm:text-5xl lg:text-[56px]">
-              Know the condition of every room you rent out.
+              Know the condition of every space you host.
             </h1>
             <p className="mt-5 max-w-[48ch] text-[17px] leading-relaxed text-ash">
               VeriSpace keeps a tamper-evident record of every guest stay, turnover and maintenance call, room by room.
