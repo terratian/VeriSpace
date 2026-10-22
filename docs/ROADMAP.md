@@ -34,3 +34,13 @@
 
 - Done 2026-10-21: property model (rooms, features, layout), setup wizard, 3D viewer, manager baseline walk, listing derived from feature status.
 - Next: maintenance tickets feeding feature status, then SMS touchpoints, geofencing, asset data (6D/7D), real 3D scan.
+
+## Realigned 2026-10-22 (owner's product definition; supersedes the "Next" lists above)
+Three modules working as one property-management suite:
+1. **VeriSpace Suite (owner/manager).** Populate each property room by room: a panorama of the whole room, a photo of each appliance and consumable, a welcome doc and a checkout doc. No 3D scanning; the 3D box model is optional.
+2. **Crew (flip).** The crew's per-room to-do list is derived from what the owner provided and expects. Each task has a preset action type (set in VeriStay) and a photo check ("stand here, take this picture"), geofenced, in the crew's language.
+3. **VeriStay (guest).** Check-in and checkout link from the reservation: welcome doc, in-room guides, arrival and departure photos.
+Everything lands in the per-room sealed ledger, which is the evidence trail for damage and responsibility.
+
+Build order: (1) owner inventory per room (room panorama, assets, consumables, docs); (2) tasks generated from the inventory with preset action types and a reference "stand here" photo; (3) crew capture screens: camera only, geofence, localization (es, fa, ar, hi, en); (4) VeriStay check-in/checkout polish; (5) owner before/after view and damage report; then SMS, PMS calendar import, maintenance tickets, smart-lock state.
+Done and kept: ledger, links, RLS, guides, checklists, readiness, issues and custody, deploy pipeline. De-prioritized: 3D layout editor, floor plan, 3D viewer (kept, optional).
