@@ -179,3 +179,38 @@ export function latestScan(events: ScanEvent[]): ScanSet | null {
   const pick = (finished.length ? finished : all).at(-1);
   return pick ? { ...pick, frames: [...pick.frames].sort((a, b) => a.index - b.index) } : null;
 }
+
+/**
+ * The direction in the room under a point on the screen. `dx` and `dy` are pixels from the middle of
+ * the view (right and down are positive), `perspective` is the viewer's focal distance in pixels, and
+ * `view` is where the view is pointing.
+ */
+export function screenToLook(dx: number, dy: number, perspective: number, view: Look): Look {
+  const c = [dx, -dy, -perspective];
+  const p = rad(view.pitch);
+  // Tilt by the view's pitch about the x axis, then turn by its yaw about the vertical axis.
+  const tilted = [c[0], c[1] * Math.cos(p) - c[2] * Math.sin(p), c[1] * Math.sin(p) + c[2] * Math.cos(p)];
+  const yw = rad(view.yaw);
+  const x = tilted[0] * Math.cos(yw) - tilted[2] * Math.sin(yw);
+  const z = tilted[0] * Math.sin(yw) + tilted[2] * Math.cos(yw);
+  const y = tilted[1];
+  const len = Math.hypot(x, y, z);
+  return { yaw: wrap360(deg(Math.atan2(x, -z))), pitch: deg(Math.asin(y / len)) };
+}
+
+export const pinSchema = z.object({
+  featureId: z.guid(),
+  scanId: z.guid(),
+  yaw: z.number().min(0).max(360),
+  pitch: z.number().min(-90).max(90),
+});
+
+export interface Pin {
+  id: string;
+  featureId: string;
+  label: string;
+  yaw: number;
+  pitch: number;
+  /** Shown on the pin: the asset's current state. */
+  status?: "working" | "degraded" | "out_of_service";
+}

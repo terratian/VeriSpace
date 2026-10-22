@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { screenToLook, type Look, type Pin } from "@/lib/scan";
 
 export interface ViewerFrame {
   index: number;
@@ -20,14 +21,31 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  * was pointing. It uses CSS 3D rather than WebGL, so photos load straight from storage without
  * cross-origin setup. Photos are overlapped and feathered, not stitched.
  */
-export default function ScanViewer({ frames, initialFrameFov = 60 }: { frames: ViewerFrame[]; initialFrameFov?: number }) {
+const PIN_COLOR = { working: "#66FCF1", degraded: "#FBBF24", out_of_service: "#F87171" } as const;
+
+export default function ScanViewer({
+  frames,
+  pins = [],
+  placingLabel,
+  onPlace,
+  onPinClick,
+  initialFrameFov = 60,
+}: {
+  frames: ViewerFrame[];
+  pins?: Pin[];
+  /** Set while the owner is placing an asset: the next click on the room places it. */
+  placingLabel?: string | null;
+  onPlace?: (look: Look) => void;
+  onPinClick?: (pin: Pin) => void;
+  initialFrameFov?: number;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [yaw, setYaw] = useState(0);
   const [pitch, setPitch] = useState(0);
   const [fov, setFov] = useState(75);
   const [frameFov, setFrameFov] = useState(initialFrameFov);
   const [height, setHeight] = useState(420);
-  const drag = useRef<{ x: number; y: number; yaw: number; pitch: number } | null>(null);
+  const drag = useRef<{ x: number; y: number; yaw: number; pitch: number; moved: boolean } | null>(null);
 
   useEffect(() => {
     const el = box.current;
@@ -39,17 +57,25 @@ export default function ScanViewer({ frames, initialFrameFov = 60 }: { frames: V
 
   const onDown = (e: React.PointerEvent) => {
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, yaw, pitch };
+    drag.current = { x: e.clientX, y: e.clientY, yaw, pitch, moved: false };
   };
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
+    if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) d.moved = true;
     const perPx = fov / (box.current?.clientHeight || 420);
     setYaw(d.yaw - (e.clientX - d.x) * perPx);
     setPitch(clamp(d.pitch + (e.clientY - d.y) * perPx, -89, 89));
   };
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent) => {
+    const d = drag.current;
     drag.current = null;
+    // A tap, not a drag, while placing an asset: work out which direction in the room was tapped.
+    if (d && !d.moved && placingLabel && onPlace && e.type === "pointerup") {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const persp = rect.height / 2 / Math.tan((fov * Math.PI) / 360);
+      onPlace(screenToLook(e.clientX - rect.left - rect.width / 2, e.clientY - rect.top - rect.height / 2, persp, { yaw, pitch }));
+    }
   };
   const onKey = useCallback((e: React.KeyboardEvent) => {
     const step = 8;
@@ -77,7 +103,7 @@ export default function ScanViewer({ frames, initialFrameFov = 60 }: { frames: V
         onPointerCancel={onUp}
         onKeyDown={onKey}
         onWheel={(e) => setFov((v) => clamp(v + e.deltaY * 0.05, 35, 110))}
-        className="relative h-[420px] w-full cursor-grab touch-none select-none overflow-hidden rounded-[14px] border border-edge bg-black outline-none focus-visible:ring-2 focus-visible:ring-mint active:cursor-grabbing sm:h-[520px]"
+        className={`relative h-[420px] w-full ${placingLabel ? "cursor-crosshair" : "cursor-grab"} touch-none select-none overflow-hidden rounded-[14px] border border-edge bg-black outline-none focus-visible:ring-2 focus-visible:ring-mint sm:h-[520px]`}
         style={{ perspective: `${perspective}px` }}
       >
         <div
@@ -111,7 +137,42 @@ export default function ScanViewer({ frames, initialFrameFov = 60 }: { frames: V
               />
             );
           })}
+          {pins.map((pin) => {
+            const color = PIN_COLOR[pin.status ?? "working"];
+            return (
+              <button
+                key={pin.id}
+                type="button"
+                aria-label={pin.label}
+                onClick={() => onPinClick?.(pin)}
+                className="absolute"
+                style={{
+                  left: -150,
+                  top: -90,
+                  width: 300,
+                  height: 180,
+                  transform: `rotateY(${-pin.yaw}deg) rotateX(${pin.pitch}deg) translateZ(${-R * 0.95}px)`,
+                  background: "none",
+                  border: 0,
+                  cursor: onPinClick ? "pointer" : "inherit",
+                }}
+              >
+                <span style={{ position: "absolute", left: 0, right: 0, top: 0, textAlign: "center" }}>
+                  <span style={{ display: "inline-block", maxWidth: 300, padding: "6px 16px", borderRadius: 14, background: "rgba(11,12,16,.88)", border: `3px solid ${color}`, color: "#E8EAED", font: "600 36px ui-monospace, Menlo, monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {pin.label}
+                  </span>
+                </span>
+                <span style={{ position: "absolute", left: 148, top: 62, width: 4, height: 70, background: color }} />
+                <span style={{ position: "absolute", left: 128, top: 128, width: 44, height: 44, borderRadius: 22, background: color, boxShadow: `0 0 0 8px ${color}55` }} />
+              </button>
+            );
+          })}
         </div>
+        {placingLabel && (
+          <p className="pointer-events-none absolute left-1/2 top-3 -translate-x-1/2 rounded-md bg-mint px-3 py-1.5 text-sm font-medium text-obsidian">
+            Tap where the {placingLabel} is
+          </p>
+        )}
         <p className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/60 px-2 py-1 text-xs text-ash">
           Drag to look around. Scroll to zoom.
         </p>

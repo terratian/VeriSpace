@@ -13,15 +13,6 @@ check() { if [ "$2" = "$3" ]; then echo "PASS  $1"; else echo "FAIL  $1 (expecte
 expect_error() { case "$3" in *"$2"*) echo "PASS  $1";; *) echo "FAIL  $1 (got: $3)"; fail=1;; esac; }
 last() { grep -v '^$' | tail -1; }
 
-# Guest resources: owner-only, web links or PDFs only.
-as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','Hot tub guide','https://example.com/tub');" >/dev/null
-check "owner can attach a link" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
-check "other owner cannot see it" "0" "$(as_user $B "select count(*) from room_resources;" | last)"
-expect_error "non-web link is rejected" "check" "$(as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','x','javascript:alert(1)');")"
-expect_error "a pdf needs a stored file" "check" "$(as_user $A "insert into room_resources(room_id,kind,title) values ('$RA','pdf','x');")"
-as_user $B "insert into room_resources(room_id,kind,title,url) values ('$RA','link','sneaky','https://example.com');" >/dev/null 2>&1
-check "other owner cannot attach to my room" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
-
 $ADMIN -c "drop database if exists $DB" -c "create database $DB" || exit 1
 $ADMIN -c "do \$\$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
@@ -84,6 +75,26 @@ expect_error "position outside the room is rejected" "check" "$(as_user $A "inse
 F=$($P -c "select id from room_features where room_id='$RA' and kind='hot_tub'")
 $P -c "insert into room_state_ledger(room_id, actor_role, event_type, payload)
        values ('$RA','manager','feature_status', jsonb_build_object('featureId','$F','status','out_of_service','note','pump'));" >/dev/null
+# Guest resources: owner-only, web links or PDFs only.
+as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','Hot tub guide','https://example.com/tub');" >/dev/null
+check "owner can attach a link" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
+check "other owner cannot see it" "0" "$(as_user $B "select count(*) from room_resources;" | last)"
+expect_error "non-web link is rejected" "check" "$(as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','x','javascript:alert(1)');")"
+expect_error "a pdf needs a stored file" "check" "$(as_user $A "insert into room_resources(room_id,kind,title) values ('$RA','pdf','x');")"
+as_user $B "insert into room_resources(room_id,kind,title,url) values ('$RA','link','sneaky','https://example.com');" >/dev/null 2>&1
+check "other owner cannot attach to my room" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
+
+# Pins: where an asset sits in a room scan.
+SCAN=11111111-1111-4111-8111-111111111111
+as_user $A "insert into room_feature_pins(feature_id,room_id,scan_id,yaw,pitch) values ('$F','$RA','$SCAN',120,10);" >/dev/null
+check "owner can pin an asset on a scan" "1" "$($P -c "select count(*) from room_feature_pins where room_id='$RA'")"
+check "other owner cannot see the pin" "0" "$(as_user $B "select count(*) from room_feature_pins;" | last)"
+as_user $B "insert into room_feature_pins(feature_id,room_id,scan_id,yaw,pitch) values ('$F','$RA','$SCAN',5,5) on conflict do nothing;" >/dev/null 2>&1
+check "other owner cannot pin in my room" "1" "$($P -c "select count(*) from room_feature_pins where room_id='$RA'")"
+expect_error "one pin per asset per scan" "duplicate" "$(as_user $A "insert into room_feature_pins(feature_id,room_id,scan_id,yaw,pitch) values ('$F','$RA','$SCAN',1,1);")"
+expect_error "pitch beyond straight up is rejected" "check" "$(as_user $A "insert into room_feature_pins(feature_id,room_id,scan_id,yaw,pitch) values ('$F','$RA','22222222-2222-4222-8222-222222222222',1,95);")"
+FB=$($P -c "select id from room_features where room_id='$RB' limit 1")
+expect_error "a pin must use an asset from the same room" "row-level security" "$(as_user $A "insert into room_feature_pins(feature_id,room_id,scan_id,yaw,pitch) values ('$FB','$RA','33333333-3333-4333-8333-333333333333',1,1);")"
 check "feature status entry is recorded and chains" "t" "$($P -c "select ok from verify_room_chain('$RA')")"
 
 $P -c "delete from rooms where id='$RB'" >/dev/null 2>&1

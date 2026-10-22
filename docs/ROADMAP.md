@@ -44,3 +44,8 @@ Everything lands in the per-room sealed ledger, which is the evidence trail for 
 
 Build order: (1) owner inventory per room (room panorama, assets, consumables, docs); (2) tasks generated from the inventory with preset action types and a reference "stand here" photo; (3) crew capture screens: camera only, geofence, localization (es, fa, ar, hi, en); (4) VeriStay check-in/checkout polish; (5) owner before/after view and damage report; then SMS, PMS calendar import, maintenance tickets, smart-lock state.
 Done and kept: ledger, links, RLS, guides, checklists, readiness, issues and custody, deploy pipeline. De-prioritized: 3D layout editor, floor plan, 3D viewer (kept, optional).
+
+## Module names and flows (2026-10-22)
+- **VeriSpace Suite** (owner/manager): builds the property room by room, scans rooms, pins assets, sets required checks.
+- **VeriService** (cleaners/crew): its own task-driven flow, not a concierge. Required checks need an in-app, geofenced, time-stamped photo; skipped required checks are reported, and the owner decides pay from the completion report (the app suggests, never pays).
+- **VeriStay** (guests): a concierge: easy check-in, mid-stay check-in, checkout; tap an asset pin in the room view for help.

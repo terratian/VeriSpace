@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleDiff, latestScan, lookDirection, lookDistance, lookVector, matchTarget, scanTargets, validateScanPayload, wrap360 } from "./scan";
+import { screenToLook, angleDiff, latestScan, lookDirection, lookDistance, lookVector, matchTarget, scanTargets, validateScanPayload, wrap360 } from "./scan";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const near = (a: number, b: number, d = 0.01) => expect(Math.abs(a - b)).toBeLessThan(d);
@@ -89,5 +89,27 @@ describe("latestScan", () => {
   });
   it("ignores malformed entries", () => {
     expect(latestScan([{ event_type: "scan_frame", payload: { nope: 1 }, frame_sha256: "a".repeat(64), created_at: "x" }])).toBeNull();
+  });
+});
+
+describe("screenToLook", () => {
+  it("returns the view direction for the middle of the screen", () => {
+    const l = screenToLook(0, 0, 340, { yaw: 120, pitch: 20 });
+    near(l.yaw, 120, 0.001);
+    near(l.pitch, 20, 0.001);
+  });
+  it("turns right for a point right of the middle, and up for a point above it", () => {
+    const right = screenToLook(200, 0, 340, { yaw: 0, pitch: 0 });
+    expect(right.yaw).toBeGreaterThan(0);
+    expect(right.yaw).toBeLessThan(90);
+    near(right.pitch, 0, 0.001);
+    const up = screenToLook(0, -150, 340, { yaw: 0, pitch: 0 });
+    expect(up.pitch).toBeGreaterThan(0);
+    const wrapped = screenToLook(-200, 0, 340, { yaw: 0, pitch: 0 });
+    expect(wrapped.yaw).toBeGreaterThan(270);
+  });
+  it("agrees with lookVector: a point placed at a look maps back to it", () => {
+    // A point straight ahead of a view turned 90 degrees right should be due east.
+    near(screenToLook(0, 0, 340, { yaw: 90, pitch: 0 }).yaw, 90, 0.001);
   });
 });

@@ -39,6 +39,11 @@ const [, yUp] = await centre('img[data-yaw="0"][data-pitch="55"]');
 const [, yDown] = await centre('img[data-yaw="0"][data-pitch="-55"]');
 console.log("30 is right of 0:", x30 > x0, "| up ring above:", yUp < y0, "| down ring below:", yDown > y0);
 await p.screenshot({ path: `${shots}/scan-view-0.png` });
+// Pins sit where they were put, and tapping one in placing mode would map back to the same direction.
+const pinCount = await p.locator("button[aria-label]").count();
+const [px] = await centre('button[aria-label="Smart TV"]');
+console.log("pins shown:", pinCount, "| TV pin (60 deg) right of the 0 deg photo:", px > x0);
+await p.screenshot({ path: `${shots}/scan-pins.png` });
 for (let i = 0; i < 11; i++) await p.keyboard.press("ArrowRight"); // 88 degrees
 console.log("after turning right 88:", await visibleLabel());
 for (let i = 0; i < 11; i++) await p.keyboard.press("ArrowUp"); // up 88

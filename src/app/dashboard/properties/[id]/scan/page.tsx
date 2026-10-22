@@ -4,11 +4,12 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import ScanCapture from "@/components/dashboard/ScanCapture";
-import { ScanViewerLoader } from "@/components/dashboard/ScanViewerLoader";
+import { ScanStudioLoader } from "@/components/dashboard/ScanViewerLoader";
 import { Breadcrumbs, DbError, EmptyState, Panel } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
-import { SCAN_COMPLETE_EVENT, SCAN_FRAME_EVENT, latestScan } from "@/lib/scan";
+import { FEATURE_STATUS_EVENT, featureStatuses, stateOf } from "@/lib/model";
+import { SCAN_COMPLETE_EVENT, SCAN_FRAME_EVENT, latestScan, type Pin } from "@/lib/scan";
 import { photoStoreFromEnv, storageConfigFromEnv } from "@/lib/storage";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { fmtDateTime } from "@/lib/time";
@@ -75,6 +76,20 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     ? await Promise.all(scan.frames.map(async (f) => ({ ...f, url: await store.signedUrl(property.id, f.sha256, 3600) })))
     : [];
 
+  // Assets in this room, their current state, and where each is pinned on this scan.
+  const [featRes, statusRes, pinRes] = await Promise.all([
+    supabase.from("room_features").select("id, name").eq("room_id", room.id).order("created_at"),
+    supabase.from("room_state_ledger").select("event_type, payload").eq("room_id", room.id).eq("event_type", FEATURE_STATUS_EVENT).order("seq"),
+    scan ? supabase.from("room_feature_pins").select("id, feature_id, yaw, pitch").eq("room_id", room.id).eq("scan_id", scan.scanId) : Promise.resolve({ data: [], error: null }),
+  ]);
+  const statuses = featureStatuses(statusRes.error ? [] : ((statusRes.data ?? []) as { event_type: string; payload: unknown }[]));
+  const assets = ((featRes.error ? [] : featRes.data) ?? []).map((f: { id: string; name: string }) => ({ id: f.id, name: f.name, status: stateOf(statuses, f.id).status }));
+  const nameOf = new Map(assets.map((a) => [a.id, a]));
+  const pins: Pin[] = ((pinRes.error ? [] : pinRes.data) ?? []).flatMap((p: { id: string; feature_id: string; yaw: number | string; pitch: number | string }) => {
+    const a = nameOf.get(p.feature_id);
+    return a ? [{ id: p.id, featureId: a.id, label: a.name, yaw: Number(p.yaw), pitch: Number(p.pitch), status: a.status }] : [];
+  });
+
   return (
     <div className="py-6">
       <Breadcrumbs items={crumbs} />
@@ -96,7 +111,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
         <h2 className="mb-3 text-lg font-semibold">{room.name}</h2>
         {frames.length > 0 && scan ? (
           <>
-            <ScanViewerLoader frames={frames} />
+            <ScanStudioLoader scanId={scan.scanId} frames={frames} assets={assets} pins={pins} />
             <p className="mt-3 text-sm text-mute">
               {scan.complete ? "Sealed" : "Unfinished scan"} {fmtDateTime(scan.at, property.timezone as string)} · {scan.frames.length} photos
               {scan.mode === "manual" ? " · placed in order (no direction sensors)" : ""}
