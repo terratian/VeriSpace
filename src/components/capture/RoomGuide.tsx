@@ -1,12 +1,28 @@
-import { AlertTriangle, ChevronDown } from "lucide-react";
+import { AlertTriangle, ChevronDown, ExternalLink, FileText } from "lucide-react";
+import type { GuestResource } from "@/lib/resources";
 import { Badge } from "@/components/ui/primitives";
 import { FEATURE_LABELS, STATUS_LABELS } from "@/lib/model";
 import type { RoomFeatureInfo } from "./RoomList";
 import { sortContent, type RoomContent } from "@/lib/guide";
 
 /** What the manager wrote about this room for guests. Allergen and health notes come first and stay open. */
-export function RoomGuide({ content, features = [] }: { content: RoomContent[]; features?: RoomFeatureInfo[] }) {
-  if (content.length === 0 && features.length === 0) return null;
+function ResourceLinks({ items }: { items: GuestResource[] }) {
+  return (
+    <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+      {items.map((r) => (
+        <li key={r.id}>
+          <a href={r.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-8 items-center gap-1.5 text-[14px] text-mint underline-offset-2 hover:underline">
+            {r.kind === "pdf" ? <FileText className="size-4" aria-hidden="true" /> : <ExternalLink className="size-4" aria-hidden="true" />}
+            {r.title}
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function RoomGuide({ content, features = [], resources = [] }: { content: RoomContent[]; features?: RoomFeatureInfo[]; resources?: GuestResource[] }) {
+  if (content.length === 0 && features.length === 0 && resources.length === 0) return null;
   const items = sortContent(content);
   const allergens = items.filter((i) => i.kind === "allergen");
   const rest = items.filter((i) => i.kind !== "allergen");
@@ -22,6 +38,7 @@ export function RoomGuide({ content, features = [] }: { content: RoomContent[]; 
                 <div className="min-w-0">
                   <p className={`text-[16px] font-medium ${f.status === "out_of_service" ? "text-mute line-through" : "text-white"}`}>{f.name}</p>
                   <p className="text-[13px] text-mute">{f.status === "working" ? FEATURE_LABELS[f.kind] : f.note || FEATURE_LABELS[f.kind]}</p>
+                  {f.resources && f.resources.length > 0 && <ResourceLinks items={f.resources} />}
                 </div>
                 {f.status !== "working" && (
                   <Badge tone={f.status === "degraded" ? "amber" : "red"}>{f.status === "degraded" ? "Limited right now" : STATUS_LABELS.out_of_service}</Badge>
@@ -29,6 +46,12 @@ export function RoomGuide({ content, features = [] }: { content: RoomContent[]; 
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {resources.length > 0 && (
+        <div className="mb-4">
+          <h2 className="text-[15px] font-semibold">Guides and links</h2>
+          <ResourceLinks items={resources} />
         </div>
       )}
       {allergens.length > 0 && (

@@ -27,7 +27,7 @@ async function Harness({ searchParams }: { searchParams: Promise<{ role?: string
         rules: "No smoking. Quiet hours 10pm to 8am.",
       }}
       rooms={[
-        { id: "00000000-0000-0000-0000-0000000000a1", name: "Living Room", content: [{ id: "c1", kind: "tutorial", title: "Fireplace", body: "Open the flue first." }], features: [{ id: "f1", name: "Gas fireplace", kind: "fireplace", status: "degraded", note: "Pilot light is being repaired" }, { id: "f2", name: "Smart TV", kind: "tv", status: "working", note: "" }], checklist: r === "manager" ? [{ id: "f1", label: "Gas fireplace", requiresPhoto: true }, { id: "f2", label: "Smart TV", requiresPhoto: true }] : [], doneItems: [] },
+        { id: "00000000-0000-0000-0000-0000000000a1", name: "Living Room", resources: [{ id: "x3", title: "Wi-Fi and TV guide", kind: "link", url: "https://example.com/tv" }], content: [{ id: "c1", kind: "tutorial", title: "Fireplace", body: "Open the flue first." }], features: [{ id: "f1", name: "Gas fireplace", kind: "fireplace", status: "degraded", note: "Pilot light is being repaired", resources: [{ id: "x1", title: "Fireplace manual", kind: "pdf", url: "https://example.com/fireplace.pdf" }, { id: "x2", title: "Product page", kind: "link", url: "https://example.com/fireplace" }] }, { id: "f2", name: "Smart TV", kind: "tv", status: "working", note: "" }], checklist: r === "manager" ? [{ id: "f1", label: "Gas fireplace", requiresPhoto: true }, { id: "f2", label: "Smart TV", requiresPhoto: true }] : [], doneItems: [] },
         {
           id: "00000000-0000-0000-0000-0000000000a2",
           name: "Kitchen",

@@ -6,6 +6,7 @@ import { FEATURE_STATUS_EVENT, featureStatuses, stateOf, toFeature } from "@/lib
 import { doneItemIds } from "@/lib/readiness";
 import { verifyCapability, type CapabilityRole } from "@/lib/capability";
 import { env } from "@/lib/env";
+import { BUCKET, type GuestResource, type ResourceRow } from "@/lib/resources";
 import { storageConfigFromEnv } from "@/lib/storage";
 import { serviceClient } from "@/lib/supabase/server";
 
@@ -70,6 +71,8 @@ export default async function LinkGate({ token, role }: { token: string; role: C
   const tasksByRoom = new Map<string, ChecklistItem[]>();
   const doneByRoom = new Map<string, string[]>();
   const featuresByRoom = new Map<string, RoomFeatureInfo[]>();
+  const resourcesByRoom = new Map<string, GuestResource[]>();
+  const resourcesByFeature = new Map<string, GuestResource[]>();
 
   if (roomIds.length > 0) {
     if (role === "guest") {
@@ -80,6 +83,22 @@ export default async function LinkGate({ token, role }: { token: string; role: C
       if (!procRes.error && procRes.data) {
         const p = procRes.data as { checkin_instructions: string | null; checkout_instructions: string | null; house_rules: string | null };
         guide = { checkin: p.checkin_instructions ?? "", checkout: p.checkout_instructions ?? "", rules: p.house_rules ?? "" };
+      }
+      // Guides and links. A PDF gets a signed address that lasts a few hours, so the file stays private.
+      const resRes = await db.from("room_resources").select("id, room_id, feature_id, kind, title, url, storage_path").in("room_id", roomIds).order("created_at");
+      if (!resRes.error) {
+        for (const row of (resRes.data ?? []) as ResourceRow[]) {
+          let url = row.url;
+          if (row.kind === "pdf" && row.storage_path) {
+            const signed = await db.storage.from(BUCKET).createSignedUrl(row.storage_path, 6 * 3600);
+            url = signed.data?.signedUrl ?? null;
+          }
+          if (!url) continue;
+          const item: GuestResource = { id: row.id, title: row.title, kind: row.kind, url };
+          const map = row.feature_id ? resourcesByFeature : resourcesByRoom;
+          const key = row.feature_id ?? row.room_id;
+          map.set(key, [...(map.get(key) ?? []), item]);
+        }
       }
       // Features guests can use, with their current status read from the ledger.
       const featRes = await db
@@ -99,7 +118,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
         for (const row of (featRes.data ?? []) as Parameters<typeof toFeature>[0][]) {
           const f = toFeature(row);
           const s = stateOf(statuses, f.id);
-          featuresByRoom.set(f.roomId, [...(featuresByRoom.get(f.roomId) ?? []), { id: f.id, name: f.name, kind: f.kind, status: s.status, note: s.note }]);
+          featuresByRoom.set(f.roomId, [...(featuresByRoom.get(f.roomId) ?? []), { id: f.id, name: f.name, kind: f.kind, status: s.status, note: s.note, resources: resourcesByFeature.get(f.id) }]);
         }
       }
       if (!contentRes.error) {
@@ -147,6 +166,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
       rooms={rooms.map((r) => ({
         ...r,
         content: contentByRoom.get(r.id) ?? [],
+        resources: resourcesByRoom.get(r.id) ?? [],
         features: featuresByRoom.get(r.id) ?? [],
         checklist: tasksByRoom.get(r.id) ?? [],
         doneItems: doneByRoom.get(r.id) ?? [],

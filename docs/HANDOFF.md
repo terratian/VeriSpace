@@ -93,3 +93,9 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 - Add property -> `/dashboard/properties/[id]/setup?step=rooms` (room presets) -> Layout (drag/resize `LayoutStudio`, live 3D, batch save via `saveLayoutBatch`) -> Features -> Baseline walk -> Guide -> Stay/links. `SetupProgress` card on the property page tracks it (`src/lib/setup.ts`).
 - Deploy: `docs/DEPLOY_VERCEL.md`. Check `/api/health` (commit + which env vars are set), `/demo` (sample-data tour, needs `ENABLE_DEMO=1`), `/dev-preview/layout`.
 - Verified: tsc, vitest (168), build. Not yet browser-tested: layout drag/resize. Not run: `npm run test:db` for this batch, live Supabase/Vercel.
+
+## Rooms, assets and guest help
+- Setup > Rooms: rename or remove rooms (a room with ledger history can't be removed). Setup > Features: edit an asset (name, type, details, shown to guests) and attach guest help to an asset or a room: web links or uploaded PDFs (private `property-files` bucket, signed 6 h links on the guest page).
+- Migration `20261024000000_room_resources.sql` must be applied in Supabase (creates `room_resources` and the bucket). Edits to assets wait while a guest is in house; adding help is always allowed.
+- Checks: `scripts/guest-help-flow.mjs` (guest view), `scripts/layout-flow.mjs`.
+- Next: SMS (design in docs/design/sms-plivo.md), PMS calendar import, maintenance tickets.

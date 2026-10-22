@@ -13,6 +13,15 @@ check() { if [ "$2" = "$3" ]; then echo "PASS  $1"; else echo "FAIL  $1 (expecte
 expect_error() { case "$3" in *"$2"*) echo "PASS  $1";; *) echo "FAIL  $1 (got: $3)"; fail=1;; esac; }
 last() { grep -v '^$' | tail -1; }
 
+# Guest resources: owner-only, web links or PDFs only.
+as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','Hot tub guide','https://example.com/tub');" >/dev/null
+check "owner can attach a link" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
+check "other owner cannot see it" "0" "$(as_user $B "select count(*) from room_resources;" | last)"
+expect_error "non-web link is rejected" "check" "$(as_user $A "insert into room_resources(room_id,kind,title,url) values ('$RA','link','x','javascript:alert(1)');")"
+expect_error "a pdf needs a stored file" "check" "$(as_user $A "insert into room_resources(room_id,kind,title) values ('$RA','pdf','x');")"
+as_user $B "insert into room_resources(room_id,kind,title,url) values ('$RA','link','sneaky','https://example.com');" >/dev/null 2>&1
+check "other owner cannot attach to my room" "1" "$($P -c "select count(*) from room_resources where room_id='$RA'")"
+
 $ADMIN -c "drop database if exists $DB" -c "create database $DB" || exit 1
 $ADMIN -c "do \$\$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;

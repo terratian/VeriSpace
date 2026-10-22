@@ -131,7 +131,7 @@ export function RoomScreen({
             {error}
           </p>
         )}
-        <RoomGuide content={room.content} features={room.features} />
+        <RoomGuide content={room.content} features={room.features} resources={room.resources} />
         <button type="button" onClick={onPhoto} className={`${button("primary", "lg")} mt-6 w-full`}>
           <Camera className="size-5" aria-hidden="true" />
           {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/primitives";
 import type { Tone } from "@/components/ui/styles";
 import type { ChecklistItem, RoomContent } from "@/lib/guide";
 import type { FeatureKind, FeatureStatus } from "@/lib/model";
+import type { GuestResource } from "@/lib/resources";
 
 export interface RoomFeatureInfo {
   id: string;
@@ -12,6 +13,7 @@ export interface RoomFeatureInfo {
   kind: FeatureKind;
   status: FeatureStatus;
   note: string;
+  resources?: GuestResource[];
 }
 
 export interface RoomInfo {
@@ -19,6 +21,8 @@ export interface RoomInfo {
   name: string;
   /** What the manager wrote about the room for guests. */
   content: RoomContent[];
+  /** Guides and links for the whole room. */
+  resources?: GuestResource[];
   /** Features guests can use here, with their current status. */
   features: RoomFeatureInfo[];
   /** The room's tasks for the crew. */

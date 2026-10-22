@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { FloorPlan } from "@/components/dashboard/FloorPlan";
+import { AssetEditor, ResourceManager, RoomEditor, type OwnerResource } from "@/components/dashboard/AssetEditor";
 import { LayoutStudio, type EditorRoom } from "@/components/dashboard/LayoutStudio";
 import { FeaturePlacer, RemoveFeatureButton, RoomLayoutForm, RoomPresetsForm, StatusForm } from "@/components/dashboard/ModelForms";
 import { PropertyViewerLoader } from "@/components/dashboard/PropertyViewerLoader";
@@ -98,6 +99,12 @@ export default async function SetupPage({
   const rooms = (property.rooms ?? []) as unknown as RoomRow[];
   const step: StepKey = requestedStep ?? (rooms.length === 0 ? "rooms" : "layout");
   const roomIds = rooms.map((r) => r.id);
+  const resourcesRes = roomIds.length
+    ? await supabase.from("room_resources").select("id, room_id, feature_id, kind, title, url").in("room_id", roomIds).order("created_at")
+    : { data: [], error: null };
+  const resourceRows = (resourcesRes.error ? [] : (resourcesRes.data ?? [])) as { id: string; room_id: string; feature_id: string | null; kind: "link" | "pdf"; title: string; url: string | null }[];
+  const resourcesFor = (roomId: string, featureId: string | null): OwnerResource[] =>
+    resourceRows.filter((x) => x.room_id === roomId && x.feature_id === featureId);
   const [featuresRes, eventsRes] = roomIds.length
     ? await Promise.all([
         supabase.from("room_features").select("id, room_id, kind, name, pos_x, pos_y, advertised, details").in("room_id", roomIds).order("created_at"),
@@ -208,10 +215,10 @@ export default async function SetupPage({
           <SectionHeading title="Rooms" count={rooms.length} />
           <p className="mb-4 text-sm text-mute">Add each space guests or crew will photograph. You can add more at any time.</p>
           {rooms.length > 0 && (
-            <ul className="mb-5 flex flex-wrap gap-2">
+            <ul className="mb-5 space-y-2">
               {rooms.map((r) => (
-                <li key={r.id} className="rounded-full border border-edge px-3 py-1 text-sm text-ash">
-                  {r.name}
+                <li key={r.id}>
+                  <RoomEditor id={r.id} name={r.name} />
                 </li>
               ))}
             </ul>
@@ -289,7 +296,8 @@ export default async function SetupPage({
                       {mine.length > 0 && (
                         <ul className="mt-3 divide-y divide-edge border-y border-edge">
                           {mine.map((f) => (
-                            <li key={f.id} className="flex items-center justify-between gap-3 py-2">
+                            <li key={f.id} className="py-2">
+                              <div className="flex items-center justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="truncate text-white">{f.name}</p>
                                 <p className="text-[13px] text-mute">
@@ -298,10 +306,20 @@ export default async function SetupPage({
                                 </p>
                               </div>
                               <RemoveFeatureButton id={f.id} name={f.name} />
+                              </div>
+                              <AssetEditor
+                                propertyId={property.id}
+                                roomId={r.id}
+                                feature={{ id: f.id, name: f.name, kind: f.kind, advertised: f.advertised, details: f.details }}
+                                resources={resourcesFor(r.id, f.id)}
+                              />
                             </li>
                           ))}
                         </ul>
                       )}
+                      <div className="mt-4 border-t border-edge pt-4">
+                        <ResourceManager propertyId={property.id} roomId={r.id} featureId={null} resources={resourcesFor(r.id, null)} />
+                      </div>
                       <div className="mt-4">
                         <FeaturePlacer room={{ id: r.id, name: r.name, widthFt: p.w / 0.3048, lengthFt: p.d / 0.3048 }} features={mine} statuses={statusMap} />
                       </div>
