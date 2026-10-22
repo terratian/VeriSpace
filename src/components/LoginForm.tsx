@@ -7,6 +7,7 @@ import { button, field, fieldLabel } from "@/components/ui/styles";
 
 export default function LoginForm({ failed }: { failed: boolean }) {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(
     failed ? { tone: "error", text: "Sign-in didn't complete. Try again, or use an email link." } : null,
   );
@@ -29,6 +30,17 @@ export default function LoginForm({ failed }: { failed: boolean }) {
   async function emailLink(e: React.FormEvent) {
     e.preventDefault();
     setBusy("email");
+    // With a password this signs in directly: no email round trip, handy for testing on a phone.
+    if (password) {
+      const { error } = await createBrowserSupabase().auth.signInWithPassword({ email, password });
+      if (error) {
+        setMessage({ tone: "error", text: error.message });
+        setBusy(null);
+      } else {
+        window.location.assign("/dashboard");
+      }
+      return;
+    }
     const { error } = await createBrowserSupabase().auth.signInWithOtp({
       email,
       options: { emailRedirectTo: redirectTo() },
@@ -66,9 +78,22 @@ export default function LoginForm({ failed }: { failed: boolean }) {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+        <div>
+          <label htmlFor="password" className={fieldLabel}>
+            Password <span className="text-mute">(optional)</span>
+          </label>
+          <input
+            id="password"
+            className={field}
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
         <button disabled={busy !== null} className={`${button("primary", "lg")} w-full`}>
           {busy === "email" && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-          Email me a sign-in link
+          {password ? "Sign in" : "Email me a sign-in link"}
         </button>
       </form>
 

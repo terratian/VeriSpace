@@ -21,3 +21,6 @@ Every push to `main` on GitHub deploys automatically once the repo is connected.
 - Phone cameras need HTTPS, which Vercel provides.
 - The Vercel Hobby plan is for non-commercial use; move to Pro before real customers.
 - `/dev-preview/*` and `/demo` are off in production unless `ENABLE_DEMO=1`.
+
+## Signing in without an email link (testing)
+The login page has an optional Password field. To use it, create a password for your user in Supabase: Authentication, Users, your user, Send password recovery or Add user with a password (tick Auto Confirm User). Then enter email and password on `/login`: no email round trip.
