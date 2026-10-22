@@ -97,11 +97,13 @@ export interface EventInput {
   itemId?: string;
   itemLabel?: string;
   shot?: Pick<Shot, "sha256" | "width" | "height" | "blob" | "source">;
+  /** Extra fields for the payload, such as a scan frame's direction. They can't override the capture fields above. */
+  extra?: Record<string, unknown>;
 }
 
 /** The ledger payload: only what describes the capture. The server adds the reservation. */
 export function payloadFor(input: EventInput): Record<string, unknown> {
-  const payload: Record<string, unknown> = {};
+  const payload: Record<string, unknown> = { ...input.extra };
   const note = input.note?.trim();
   if (note) payload.note = note.slice(0, 500);
   if (input.itemId) {

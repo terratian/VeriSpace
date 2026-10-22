@@ -99,3 +99,9 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 - Migration `20261024000000_room_resources.sql` must be applied in Supabase (creates `room_resources` and the bucket). Edits to assets wait while a guest is in house; adding help is always allowed.
 - Checks: `scripts/guest-help-flow.mjs` (guest view), `scripts/layout-flow.mjs`.
 - Next: SMS (design in docs/design/sms-plivo.md), PMS calendar import, maintenance tickets.
+
+## Room scan (guided panorama)
+- `/dashboard/properties/[id]/scan?room=ID`: the manager stands in the room and turns; the phone's direction sensors place 24 markers (a ring of 12 at the horizon, 6 up, 6 down) and a photo is taken at each. Without direction sensors the photos are taken in order. Each frame is hashed on the phone, uploaded to storage, and sealed as a `scan_frame` ledger entry (direction in the payload); a `scan_complete` entry records the time and GPS position. Needs photo storage (R2) configured.
+- The viewer (`ScanViewer`) lays the photos on a sphere with CSS 3D (no WebGL, so no storage CORS setup). It overlaps and feathers photos; it does not stitch them. The "Photo coverage" slider corrects the assumed field of view.
+- Logic and tests: `src/lib/scan.ts`. Browser check: `scripts/scan-flow.mjs`. Demos: `/dev-preview/scan`, `/dev-preview/scan-view`.
+- Next: estimate room shape and dimensions from the panorama; pin assets on the view; crew scans for damage comparison.

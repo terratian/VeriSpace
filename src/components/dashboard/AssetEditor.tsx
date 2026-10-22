@@ -1,6 +1,7 @@
 "use client";
 
 import { FileText, Link2, Loader2, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useId, useRef, useState } from "react";
 import { addResource, deleteResource, deleteRoom, renameRoom, updateFeature } from "@/app/dashboard/resource-actions";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
@@ -17,7 +18,7 @@ export interface OwnerResource {
 }
 
 /** Rename or remove a room. */
-export function RoomEditor({ id, name }: { id: string; name: string }) {
+export function RoomEditor({ id, name, scanHref }: { id: string; name: string; scanHref?: string }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
       <ActionForm action={renameRoom} resetOnSuccess={false} className="flex items-end gap-2">
@@ -27,6 +28,11 @@ export function RoomEditor({ id, name }: { id: string; name: string }) {
           Rename
         </SubmitButton>
       </ActionForm>
+      {scanHref && (
+        <Link href={scanHref} className={button("secondary", "sm")}>
+          Scan room
+        </Link>
+      )}
       <ActionForm action={deleteRoom} resetOnSuccess={false}>
         <input type="hidden" name="id" value={id} />
         <SubmitButton variant="ghost" size="sm" pendingLabel="Removing…" confirm={`Remove "${name}" and its features?`}>

@@ -218,7 +218,7 @@ export default async function SetupPage({
             <ul className="mb-5 space-y-2">
               {rooms.map((r) => (
                 <li key={r.id}>
-                  <RoomEditor id={r.id} name={r.name} />
+                  <RoomEditor id={r.id} name={r.name} scanHref={`${base}/scan?room=${r.id}`} />
                 </li>
               ))}
             </ul>

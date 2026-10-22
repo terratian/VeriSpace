@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { CapabilityClaims } from "./capability";
 import { ISSUE_CATEGORIES, ISSUE_REPORTED, ISSUE_RESOLVED, MAINTENANCE_DONE, INSPECTION } from "./issues";
+import { validateScanPayload } from "./scan";
 import { BASELINE_EVENT, FEATURE_STATUSES, FEATURE_STATUS_EVENT } from "./model";
 
 /** Who is making a request. Managers come from Supabase auth; crew/guests from capability links. */
@@ -118,10 +119,12 @@ export function authorizeRoomAccess(principal: Principal, room: RoomRecord): voi
 }
 
 /** Shape checks for the model's event types, so a status entry always names a real status and feature. */
-export function validateModelPayload(eventType: string, payload: Record<string, unknown>): void {
+export function validateModelPayload(eventType: string, payload: Record<string, unknown>, hasFrame = true): void {
   const bad = (m: string) => {
     throw new LedgerAuthError(m, 422);
   };
+  const scanProblem = validateScanPayload(eventType, payload, hasFrame);
+  if (scanProblem) bad(scanProblem);
   if (eventType === FEATURE_STATUS_EVENT) {
     if (!z.guid().safeParse(payload.featureId).success) bad("feature_status needs a featureId");
     if (!(FEATURE_STATUSES as readonly unknown[]).includes(payload.status)) bad("feature_status needs a valid status");
@@ -166,7 +169,7 @@ export async function appendLedgerEvent(
   const room = await db.getRoom(input.roomId);
   if (!room) throw new LedgerAuthError("room not found", 404);
   authorizeEvent(principal, room, input.eventType);
-  validateModelPayload(input.eventType, input.payload);
+  validateModelPayload(input.eventType, input.payload, Boolean(input.frameSha256));
   const featureId = input.eventType === BASELINE_EVENT ? input.payload.itemId : input.payload.featureId;
   if (typeof featureId === "string" && db.featureInRoom && !(await db.featureInRoom(room.id, featureId))) {
     throw new LedgerAuthError("that feature is not in this room", 422);
