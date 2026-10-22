@@ -12,6 +12,21 @@ const EXAMPLE_ROWS = [
   { time: "11:40 AM", who: "Crew", what: "Verified photo", hash: "4c18…d2b7" },
 ];
 
+const PILLARS = [
+  {
+    title: "A concierge for every feature",
+    body: "Guides, manuals and product pages are attached to the hot tub, the lock or the TV they belong to, so guests find help in the room they are standing in.",
+  },
+  {
+    title: "A checklist for every flip",
+    body: "Crew work through a task list per room and photograph what matters. Each tick is recorded, and the record can't be edited afterwards.",
+  },
+  {
+    title: "Evidence when it counts",
+    body: "Every photo is fingerprinted on the phone and sealed into a time-stamped chain, so a claim shows when something changed and whose link recorded it.",
+  },
+];
+
 const STEPS = [
   {
     title: "Crew photograph each room",
@@ -41,11 +56,12 @@ export default function Home() {
         <section className="mx-auto grid max-w-[1120px] items-center gap-12 px-4 pb-20 pt-12 sm:px-6 lg:grid-cols-[1.05fr_1fr] lg:pt-20">
           <div>
             <h1 className="max-w-[14ch] text-[40px] font-semibold leading-[1.02] sm:text-5xl lg:text-[56px]">
-              Know what condition the place was in.
+              Know the condition of every room you rent out.
             </h1>
-            <p className="mt-5 max-w-[46ch] text-[17px] leading-relaxed text-ash">
-              VeriSpace keeps a tamper-evident record of every turnover and stay, room by room. When a damage claim
-              comes in, you have evidence instead of memories.
+            <p className="mt-5 max-w-[48ch] text-[17px] leading-relaxed text-ash">
+              VeriSpace keeps a tamper-evident record of every guest stay, turnover and maintenance call, room by room.
+              It is a concierge for every feature you host, a checklist for every flip, and, in the worst case,
+              timestamped, cryptographically sealed evidence of when damage happened and who was responsible.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/login" className={button("primary", "lg")}>
@@ -81,6 +97,17 @@ export default function Home() {
               ))}
             </ul>
           </Panel>
+        </section>
+
+        <section className="border-t border-edge">
+          <div className="mx-auto grid max-w-[1120px] gap-x-12 gap-y-8 px-4 py-14 sm:px-6 md:grid-cols-3">
+            {PILLARS.map((p) => (
+              <div key={p.title}>
+                <h2 className="text-[17px] font-semibold">{p.title}</h2>
+                <p className="mt-2 max-w-[40ch] text-[15px] leading-relaxed text-mute">{p.body}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section id="how" className="border-t border-edge">
