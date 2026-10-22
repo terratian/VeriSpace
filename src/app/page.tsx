@@ -24,34 +24,17 @@ const PILLARS = [
   },
 ];
 
-/** An illustrative wireframe of a room with assets pinned to it. Not a real scan. */
+/** The room as a 3D model with assets pinned to it. Illustrative artwork, not a real scan. */
 function RoomTwin() {
   return (
-    <svg viewBox="0 0 520 300" role="img" aria-label="Wireframe of a living room with a sofa and a fireplace pinned" className="mb-4 mt-4 w-full">
-      <defs>
-        <pattern id="twin-grid" width="40" height="20" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V20" fill="none" stroke="#66FCF1" strokeOpacity=".14" />
-        </pattern>
-      </defs>
-      <g fill="none" stroke="#66FCF1" strokeWidth="1.4" strokeLinejoin="round">
-        <path d="M260 96 460 186 260 276 60 186z" fill="url(#twin-grid)" strokeOpacity=".6" />
-        <path d="M60 186V96L260 6 460 96V186M260 6V96" strokeOpacity=".8" />
-        <path d="M190 176 250 206 190 236 130 206z" strokeOpacity=".9" />
-        <path d="M130 206v-20l60-30 60 30v20M190 236v-20M130 186l60 30 60-30" strokeOpacity=".9" />
-        <path d="M330 80h90v58h-90z" strokeOpacity=".5" />
-        <path d="M340 120h70" strokeOpacity=".5" />
-      </g>
-      <g fontFamily="ui-monospace, Menlo, monospace" fontSize="11">
-        <line x1="190" y1="196" x2="190" y2="132" stroke="#66FCF1" />
-        <circle cx="190" cy="196" r="4" fill="#66FCF1" />
-        <rect x="136" y="108" width="108" height="24" rx="5" fill="#0B0C10" stroke="#66FCF1" strokeOpacity=".6" />
-        <text x="146" y="124" fill="#C5C6C7">Sofa · baseline</text>
-        <line x1="375" y1="110" x2="375" y2="62" stroke="#66FCF1" />
-        <circle cx="375" cy="110" r="4" fill="#66FCF1" />
-        <rect x="312" y="38" width="126" height="24" rx="5" fill="#0B0C10" stroke="#66FCF1" strokeOpacity=".6" />
-        <text x="322" y="54" fill="#C5C6C7">Fireplace · working</text>
-      </g>
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/hero-room.webp"
+      alt="A living room drawn as a glowing 3D wireframe, with measured points pinned to it"
+      width={916}
+      height={560}
+      className="mb-4 mt-4 w-full rounded-lg border border-edge"
+    />
   );
 }
 
