@@ -115,6 +115,14 @@ export function payloadFor(input: EventInput): Record<string, unknown> {
   return payload;
 }
 
+let demoSeq = 0;
+/** A stand-in for the ledger in the public demo: nothing is sent or saved. */
+export async function demoEvent(): Promise<RecordedEvent> {
+  await new Promise((r) => setTimeout(r, 250));
+  demoSeq += 1;
+  return { id: demoSeq, seq: demoSeq, rowHash: "0".repeat(64) };
+}
+
 export async function sendEvent(token: string, input: EventInput, fetchFn: FetchFn = fetch): Promise<RecordedEvent> {
   const res = await send(fetchFn, "/api/ledger", {
     method: "POST",

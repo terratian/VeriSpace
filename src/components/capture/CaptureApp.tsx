@@ -6,7 +6,7 @@ import { EmptyState, Logo } from "@/components/ui/primitives";
 import { EMPTY_PROGRESS, INTENTS, baselineStatus, crewStatus, guestStatus, progressKey, taskIntent, type Intent, type Shot } from "@/lib/capture";
 import type { ChecklistItem, Procedures } from "@/lib/guide";
 import { GuestProcedures } from "./GuestProcedures";
-import { CaptureError, sendEvent, type RecordedEvent } from "@/lib/captureClient";
+import { CaptureError, demoEvent, sendEvent, type EventInput, type RecordedEvent } from "@/lib/captureClient";
 import { CameraSheet } from "./CameraSheet";
 import { ReviewSheet } from "./ReviewSheet";
 import { RoomList, type RoomInfo } from "./RoomList";
@@ -29,6 +29,8 @@ export interface CaptureAppProps {
   storageId?: string;
   /** Rendered inside a page that already has a header and main region. */
   embedded?: boolean;
+  /** Public demo: nothing is sent to the server. */
+  demo?: boolean;
 }
 
 type Mode = "arrival" | "departure";
@@ -40,6 +42,7 @@ function formatValidUntil(iso: string): string {
 
 export default function CaptureApp(props: CaptureAppProps) {
   const { token, role, rooms } = props;
+  const record = (input: EventInput) => (props.demo ? demoEvent() : sendEvent(token, input));
   const { progress, bump } = useProgress(props.storageId ?? token);
 
   const [mode, setMode] = useState<Mode>("arrival");
@@ -96,7 +99,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     setBusyTask(item.id);
     setError("");
     try {
-      const event = await sendEvent(token, { roomId: room.id, eventType: "checklist_item", itemId: item.id, itemLabel: item.label });
+      const event = await record({ roomId: room.id, eventType: "checklist_item", itemId: item.id, itemLabel: item.label });
       setChecked((prev) => new Set(prev).add(item.id));
       setToast(`Recorded as entry ${event.seq} in ${room.name}`);
     } catch (err) {
@@ -130,7 +133,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     setBusy(true);
     setError("");
     try {
-      const event = await sendEvent(token, { roomId: room.id, eventType });
+      const event = await record({ roomId: room.id, eventType });
       then();
       setToast(`Recorded as entry ${event.seq} in ${room.name}`);
     } catch (err) {
@@ -150,6 +153,8 @@ export default function CaptureApp(props: CaptureAppProps) {
           <Logo className="text-[15px]" />
         </header>
       )}
+
+      {props.demo && <p className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-[13px] text-amber">Demo: sample data. Nothing is saved.</p>}
 
       {room ? (
         <RoomScreen
@@ -269,6 +274,7 @@ export default function CaptureApp(props: CaptureAppProps) {
           intent={review.intent}
           shot={review.shot}
           storageEnabled={props.storageEnabled}
+          demo={props.demo}
           onRetake={() => {
             discard(review.shot);
             setCamera(review.intent);

@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
+import { demoEnabled } from "@/lib/demo";
 import { PropertyViewerLoader } from "@/components/dashboard/PropertyViewerLoader";
 import { placeRooms } from "@/lib/model";
 
 // Dev-only: the 3D viewer with sample data, for browser checks without signing in.
 export default function Page() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (!demoEnabled()) notFound();
   const rooms = placeRooms([
     { id: "r1", name: "Living Room", width: 5.5, length: 4.5, height: 2.7, floor: 0, planX: null, planY: null },
     { id: "r2", name: "Kitchen", width: 4, length: 4.5, height: 2.7, floor: 0, planX: null, planY: null },

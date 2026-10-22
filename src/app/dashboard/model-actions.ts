@@ -80,6 +80,43 @@ export async function saveRoomLayout(_prev: ActionState, fd: FormData): Promise<
   return { ok: true, message: "Saved" };
 }
 
+const batchSchema = z
+  .array(z.object({ roomId: z.guid(), x: z.number().min(-3000).max(3000), y: z.number().min(-3000).max(3000), w: z.number().min(1).max(250), d: z.number().min(1).max(250) }))
+  .min(1)
+  .max(200);
+
+/** Save every room's position and size at once, from the drag-and-drop layout (values in feet). */
+export async function saveLayoutBatch(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text(fd, "rooms"));
+  } catch {
+    return fail("Couldn't read the layout.");
+  }
+  const parsed = batchSchema.safeParse(raw);
+  if (!parsed.success) return fail("That layout has a room outside the allowed size or position.");
+
+  const { supabase } = await signedInClient();
+  const busy = await occupiedMessage(supabase, parsed.data[0].roomId);
+  if (busy) return fail(busy);
+
+  const results = await Promise.all(
+    parsed.data.map((r) =>
+      supabase
+        .from("rooms")
+        .update({ width_m: meters(r.w), length_m: meters(r.d), plan_x: meters(r.x), plan_y: meters(r.y) })
+        .eq("id", r.roomId)
+        .select("id"),
+    ),
+  );
+  const bad = results.find((r) => r.error);
+  if (bad?.error) return fail(describeDbError(bad.error));
+  if (results.some((r) => !r.data?.length)) return fail("A room wasn't found.");
+
+  // No revalidation: the studio already shows this layout, and refreshing would reset it mid-drag.
+  return { ok: true, message: "Saved" };
+}
+
 export async function addFeature(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const parsed = featureSchema.safeParse({
     roomId: text(fd, "roomId"),

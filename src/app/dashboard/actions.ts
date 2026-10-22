@@ -47,7 +47,8 @@ export async function addProperty(_prev: ActionState, fd: FormData): Promise<Act
   if (error) return fail(describeDbError(error));
 
   refresh();
-  redirect(`/dashboard/properties/${data.id}`);
+  // Straight into setup, which starts with the rooms.
+  redirect(`/dashboard/properties/${data.id}/setup?step=rooms`);
 }
 
 export async function updateProperty(_prev: ActionState, fd: FormData): Promise<ActionState> {
@@ -80,6 +81,38 @@ export async function addRoom(_prev: ActionState, fd: FormData): Promise<ActionS
 
   refresh();
   return { ok: true, message: `Added ${parsed.data.name}` };
+}
+
+/** Add several rooms at once, from the common-room picks and a typed list. Skips names the property already has. */
+export async function addRooms(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const propertyId = z.guid().safeParse(text(fd, "propertyId"));
+  if (!propertyId.success) return fail("Property not found.");
+  const typed = text(fd, "other").split(/[,\n]/);
+  const picked = fd.getAll("names").map(String);
+  const seen = new Set<string>();
+  const names = [...picked, ...typed]
+    .map((n) => n.trim().slice(0, 120))
+    .filter((n) => {
+      const k = n.toLowerCase();
+      if (!n || seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    })
+    .slice(0, 30);
+  if (names.length === 0) return fail("Pick or type at least one room.");
+
+  const { supabase } = await signedInClient();
+  const { data: existing, error: readError } = await supabase.from("rooms").select("name").eq("property_id", propertyId.data);
+  if (readError) return fail(describeDbError(readError));
+  const have = new Set((existing ?? []).map((r) => String(r.name).toLowerCase()));
+  const fresh = names.filter((n) => !have.has(n.toLowerCase()));
+  if (fresh.length === 0) return fail("Those rooms are already added.");
+
+  const { error } = await supabase.from("rooms").insert(fresh.map((name) => ({ property_id: propertyId.data, name })));
+  if (error) return fail(describeDbError(error));
+
+  refresh();
+  return { ok: true, message: `Added ${fresh.length} ${fresh.length === 1 ? "room" : "rooms"}` };
 }
 
 export async function addReservation(_prev: ActionState, fd: FormData): Promise<ActionState> {

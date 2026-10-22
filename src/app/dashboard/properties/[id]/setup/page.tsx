@@ -4,7 +4,8 @@ import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { FloorPlan } from "@/components/dashboard/FloorPlan";
-import { FeaturePlacer, RemoveFeatureButton, RoomLayoutForm, StatusForm } from "@/components/dashboard/ModelForms";
+import { LayoutStudio, type EditorRoom } from "@/components/dashboard/LayoutStudio";
+import { FeaturePlacer, RemoveFeatureButton, RoomLayoutForm, RoomPresetsForm, StatusForm } from "@/components/dashboard/ModelForms";
 import { PropertyViewerLoader } from "@/components/dashboard/PropertyViewerLoader";
 import { Badge, Breadcrumbs, DbError, EmptyState, Panel, SectionHeading } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
@@ -13,6 +14,7 @@ import {
   BASELINE_EVENT,
   FEATURE_LABELS,
   FEATURE_STATUS_EVENT,
+  FT,
   STATUS_LABELS,
   featureStatuses,
   listingSummary,
@@ -28,6 +30,7 @@ import { fmtDateTime } from "@/lib/time";
 export const dynamic = "force-dynamic";
 
 const STEPS = [
+  { key: "rooms", label: "Rooms" },
   { key: "layout", label: "Layout" },
   { key: "features", label: "Features" },
   { key: "baseline", label: "Baseline photos" },
@@ -58,7 +61,7 @@ export default async function SetupPage({
   const { id } = await params;
   if (!z.guid().safeParse(id).success) notFound();
   const { step: stepParam } = await searchParams;
-  const step: StepKey = STEPS.some((s) => s.key === stepParam) ? (stepParam as StepKey) : "layout";
+  const requestedStep = STEPS.find((s) => s.key === stepParam)?.key;
 
   const supabase = createSessionClient(await cookies());
   const {
@@ -93,6 +96,7 @@ export default async function SetupPage({
     .maybeSingle();
 
   const rooms = (property.rooms ?? []) as unknown as RoomRow[];
+  const step: StepKey = requestedStep ?? (rooms.length === 0 ? "rooms" : "layout");
   const roomIds = rooms.map((r) => r.id);
   const [featuresRes, eventsRes] = roomIds.length
     ? await Promise.all([
@@ -132,6 +136,17 @@ export default async function SetupPage({
       planY: r.plan_y === null ? null : Number(r.plan_y),
     })),
   );
+
+  const editorRooms: EditorRoom[] = placed.map((r) => ({
+    id: r.id,
+    name: r.name,
+    x: Math.round(r.x / FT),
+    y: Math.round(r.y / FT),
+    w: Math.round(r.w / FT),
+    d: Math.round(r.d / FT),
+    h: Math.round(r.h / FT),
+    floor: r.floor,
+  }));
 
   const baselines = events.filter((e) => e.event_type === BASELINE_EVENT);
   const baselinedFeatures = new Set(
@@ -188,22 +203,55 @@ export default async function SetupPage({
         </p>
       )}
 
-      {rooms.length === 0 ? (
+      {step === "rooms" && (
+        <section className="mt-8 max-w-[640px]">
+          <SectionHeading title="Rooms" count={rooms.length} />
+          <p className="mb-4 text-sm text-mute">Add each space guests or crew will photograph. You can add more at any time.</p>
+          {rooms.length > 0 && (
+            <ul className="mb-5 flex flex-wrap gap-2">
+              {rooms.map((r) => (
+                <li key={r.id} className="rounded-full border border-edge px-3 py-1 text-sm text-ash">
+                  {r.name}
+                </li>
+              ))}
+            </ul>
+          )}
+          <Panel className="p-5">
+            <RoomPresetsForm propertyId={property.id} existing={rooms.map((r) => r.name)} />
+          </Panel>
+        </section>
+      )}
+
+      {step !== "rooms" && (rooms.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title="Add rooms first" action={<Link href={base} className={button("secondary", "sm")}>Back to the property</Link>}>
-            The model is built room by room. Add the rooms on the property page, then come back.
+          <EmptyState title="Add rooms first" action={<Link href={`${base}/setup?step=rooms`} className={button("secondary", "sm")}>Add rooms</Link>}>
+            The model is built room by room. Add the rooms first, then lay them out.
           </EmptyState>
         </div>
       ) : (
         <div className="mt-8">
           {step === "layout" && (
             <section>
-              <SectionHeading title="Room sizes and positions" />
-              <p className="mb-4 max-w-[60ch] text-sm text-mute">
-                Sizes are in feet. Leave position blank and rooms are arranged automatically; set it to place a room exactly (the first room&apos;s top left corner is 0, 0).
-              </p>
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-                <div className="space-y-3">
+              <SectionHeading title="Lay out the space" />
+              <LayoutStudio
+                key={JSON.stringify(editorRooms)}
+                rooms={editorRooms}
+                features={features.map((f) => ({
+                  id: f.id,
+                  roomId: f.roomId,
+                  name: f.name,
+                  kind: f.kind,
+                  x: f.x,
+                  y: f.y,
+                  advertised: f.advertised,
+                  status: stateOf(statuses, f.id).status,
+                  note: stateOf(statuses, f.id).note,
+                }))}
+              />
+              <details className="mt-10">
+                <summary className="inline cursor-pointer text-sm text-mute hover:text-white">Enter exact sizes, ceiling heights and floors</summary>
+                <p className="mb-4 mt-3 max-w-[60ch] text-sm text-mute">Sizes are in feet. Leave position blank and rooms are arranged automatically.</p>
+                <div className="grid gap-3 lg:grid-cols-2">
                   {rooms.map((r) => (
                     <Panel key={r.id} className="p-4">
                       <h2 className="mb-3 text-[15px] font-semibold">{r.name}</h2>
@@ -221,10 +269,7 @@ export default async function SetupPage({
                     </Panel>
                   ))}
                 </div>
-                <div className="lg:sticky lg:top-20 lg:self-start">
-                  <FloorPlan rooms={placed} />
-                </div>
-              </div>
+              </details>
             </section>
           )}
 
@@ -405,7 +450,7 @@ export default async function SetupPage({
             </section>
           )}
         </div>
-      )}
+      ))}
 
       <div className="mt-10 flex justify-between gap-3">
         {STEPS.findIndex((s) => s.key === step) > 0 ? (

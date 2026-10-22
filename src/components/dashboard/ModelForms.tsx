@@ -2,10 +2,43 @@
 
 import { Trash2 } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import { addRooms } from "@/app/dashboard/actions";
 import { addFeature, deleteFeature, saveRoomLayout, setFeatureStatus } from "@/app/dashboard/model-actions";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { field, fieldLabel } from "@/components/ui/styles";
+import { ROOM_PRESETS } from "@/lib/setup";
 import { FEATURE_KINDS, FEATURE_LABELS, FEATURE_STATUSES, STATUS_LABELS, type Feature, type FeatureStatus } from "@/lib/model";
+
+/** Pick the usual rooms in one go, and type any others. */
+export function RoomPresetsForm({ propertyId, existing }: { propertyId: string; existing: string[] }) {
+  const uid = useId();
+  const have = new Set(existing.map((n) => n.toLowerCase()));
+  return (
+    <ActionForm action={addRooms}>
+      <input type="hidden" name="propertyId" value={propertyId} />
+      <fieldset>
+        <legend className={fieldLabel}>Common rooms</legend>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {ROOM_PRESETS.map((name) => (
+            <label key={name} className={`flex items-center gap-2 rounded-lg border border-edge px-3 py-2 text-sm ${have.has(name.toLowerCase()) ? "opacity-50" : "text-ash"}`}>
+              <input type="checkbox" name="names" value={name} disabled={have.has(name.toLowerCase())} className="size-4 accent-mint" />
+              {name}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <div className="mt-4">
+        <label htmlFor={`${uid}-other`} className={fieldLabel}>
+          Other rooms (separate with commas)
+        </label>
+        <input id={`${uid}-other`} name="other" autoComplete="off" placeholder="Sunroom, Bunk room, Hot tub deck" className={field} />
+      </div>
+      <div className="mt-4">
+        <SubmitButton pendingLabel="Adding…">Add rooms</SubmitButton>
+      </div>
+    </ActionForm>
+  );
+}
 
 export interface LayoutValues {
   id: string;

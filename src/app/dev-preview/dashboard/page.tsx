@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { demoEnabled } from "@/lib/demo";
 import AppHeader from "@/components/AppHeader";
 import { OverviewPanel } from "@/components/dashboard/OverviewPanel";
 import { StayCalendar } from "@/components/dashboard/StayCalendar";
@@ -6,7 +7,7 @@ import { calendarDays, dayCells, dayKeyInZone, occupancyPercent, weekCounts } fr
 
 // Dev-only: the dashboard widgets with sample data, for checking both themes without signing in.
 export default function Page() {
-  if (process.env.NODE_ENV === "production") notFound();
+  if (!demoEnabled()) notFound();
   const now = Date.now();
   const at = (d: number) => new Date(now + d * 86_400_000).toISOString();
   const days = calendarDays(dayKeyInZone(new Date(), "UTC"), 14);

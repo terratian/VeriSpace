@@ -88,3 +88,8 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 - Guests and crew: "Report a problem" on each room (photo + note). It does not count as an arrival or verification photo. Owner: "Issues and upkeep" panel on the property page (resolve, or log a problem, maintenance or inspection note).
 - Printable record for insurance or a damage claim: `/dashboard/properties/[id]/custody?stay=` (baseline before the stay, timeline during and after, per-room chain check, photo fingerprints and thumbnails). Use the Print button to save a PDF.
 - Not built: sensor and device notifications (needs a `system` actor, a ledger constraint change and a webhook), sending tutorials by SMS, exporting the record as a file.
+
+## Owner property creation + deploy pipeline
+- Add property -> `/dashboard/properties/[id]/setup?step=rooms` (room presets) -> Layout (drag/resize `LayoutStudio`, live 3D, batch save via `saveLayoutBatch`) -> Features -> Baseline walk -> Guide -> Stay/links. `SetupProgress` card on the property page tracks it (`src/lib/setup.ts`).
+- Deploy: `docs/DEPLOY_VERCEL.md`. Check `/api/health` (commit + which env vars are set), `/demo` (sample-data tour, needs `ENABLE_DEMO=1`), `/dev-preview/layout`.
+- Verified: tsc, vitest (168), build. Not yet browser-tested: layout drag/resize. Not run: `npm run test:db` for this batch, live Supabase/Vercel.

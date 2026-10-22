@@ -1,19 +1,21 @@
 import { notFound } from "next/navigation";
+import { demoEnabled } from "@/lib/demo";
 import CaptureApp from "@/components/capture/CaptureApp";
 
 // Dev-only harness for browser tests of the capture screen (see scripts/capture-flow.mjs).
-export default function Preview({ searchParams }: { searchParams: Promise<{ role?: string }> }) {
+export default function Preview({ searchParams }: { searchParams: Promise<{ role?: string; demo?: string }> }) {
   return <Harness searchParams={searchParams} />;
 }
 
-async function Harness({ searchParams }: { searchParams: Promise<{ role?: string }> }) {
-  if (process.env.NODE_ENV === "production") notFound();
-  const { role } = await searchParams;
+async function Harness({ searchParams }: { searchParams: Promise<{ role?: string; demo?: string }> }) {
+  if (!demoEnabled()) notFound();
+  const { role, demo } = await searchParams;
   const r = role === "guest" ? "guest" : role === "manager" ? "manager" : "crew";
   const now = Date.now();
   return (
     <CaptureApp
       token="preview-token"
+      demo={demo === "1"}
       role={r}
       propertyName="Cedar Hollow Cabin"
       guestName="Maya Ortiz"

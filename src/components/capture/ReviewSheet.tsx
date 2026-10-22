@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { button, field, fieldLabel } from "@/components/ui/styles";
 import { formatBytes, type Intent, type Shot } from "@/lib/capture";
-import { CaptureError, sendEvent, uploadShot, type RecordedEvent } from "@/lib/captureClient";
+import { CaptureError, demoEvent, sendEvent, uploadShot, type RecordedEvent } from "@/lib/captureClient";
 import { Fingerprint } from "./Fingerprint";
 
 /**
@@ -22,6 +22,7 @@ export function ReviewSheet({
   onCancel,
   onRecorded,
   task,
+  demo = false,
 }: {
   token: string;
   roomId: string;
@@ -34,6 +35,8 @@ export function ReviewSheet({
   onRecorded: (event: RecordedEvent, shot: Shot) => void;
   /** The checklist task this photo completes, when it was taken for one. */
   task?: { id: string; label: string };
+  /** Public demo: record nothing, just show the flow. */
+  demo?: boolean;
 }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -48,6 +51,10 @@ export function ReviewSheet({
     setSaving(true);
     setError("");
     try {
+      if (demo) {
+        onRecorded(await demoEvent(), shot);
+        return;
+      }
       if (!uploaded.current) {
         await uploadShot(token, roomId, shot);
         uploaded.current = true;

@@ -6,6 +6,7 @@ import { ActivityList, type ActivityItem } from "@/components/dashboard/Activity
 import { AddRoomForm } from "@/components/dashboard/AddRoomForm";
 import { AddStayForm } from "@/components/dashboard/AddStayForm";
 import { UpkeepPanel, type IssueView } from "@/components/dashboard/UpkeepPanel";
+import { SetupProgress } from "@/components/dashboard/SetupProgress";
 import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
@@ -14,6 +15,7 @@ import type { ChainEntry } from "@/components/ChainStrip";
 import { Badge, Breadcrumbs, DbError, EmptyState, Panel, SectionHeading } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
+import { setupSteps } from "@/lib/setup";
 import { openIssues, type LedgerEntry } from "@/lib/issues";
 import { eventLabel } from "@/lib/labels";
 import { photoStoreFromEnv } from "@/lib/storage";
@@ -27,6 +29,8 @@ export const dynamic = "force-dynamic";
 interface RoomData {
   id: string;
   name: string;
+  width_m: number | null;
+  length_m: number | null;
   room_state_ledger: { count: number }[];
 }
 interface LedgerData {
@@ -52,7 +56,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   // Row Level Security hides other owners' properties, so a foreign id behaves like a missing one.
   const { data: property, error } = await supabase
     .from("properties")
-    .select("id, name, address, timezone, rooms(id, name, room_state_ledger(count))")
+    .select("id, name, address, timezone, rooms(id, name, width_m, length_m, room_state_ledger(count))")
     .eq("id", id)
     .order("created_at", { referencedTable: "rooms" })
     .maybeSingle();
@@ -119,6 +123,30 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
       eventsRes.error ? [] : ((eventsRes.data ?? []) as unknown as ReadyEvent[]),
     );
   }
+
+  // How far setup has got. Each count is optional: a failed lookup (such as a migration not applied yet) counts as none.
+  const head = (q: PromiseLike<{ count: number | null }>) => Promise.resolve(q).then((r) => r.count ?? 0, () => 0);
+  const [featureCount, baselineCount, contentCount, taskCount, procRes] = roomIds.length
+    ? await Promise.all([
+        head(supabase.from("room_features").select("id", { count: "exact", head: true }).in("room_id", roomIds)),
+        head(supabase.from("room_state_ledger").select("id", { count: "exact", head: true }).in("room_id", roomIds).eq("event_type", "baseline_photo")),
+        head(supabase.from("room_content").select("id", { count: "exact", head: true }).in("room_id", roomIds)),
+        head(supabase.from("room_checklist_items").select("id", { count: "exact", head: true }).in("room_id", roomIds)),
+        supabase.from("properties").select("checkin_instructions, checkout_instructions, house_rules").eq("id", id).maybeSingle(),
+      ])
+    : [0, 0, 0, 0, null];
+  const proc = procRes && !procRes.error ? (procRes.data as { checkin_instructions: string | null; checkout_instructions: string | null; house_rules: string | null } | null) : null;
+  const steps = setupSteps(
+    {
+      rooms: rooms.length,
+      roomsSized: rooms.filter((r) => r.width_m !== null && r.length_m !== null).length,
+      features: featureCount,
+      baselines: baselineCount,
+      guideItems: contentCount + taskCount + (proc && (proc.checkin_instructions || proc.checkout_instructions || proc.house_rules) ? 1 : 0),
+      stays: stays.length,
+    },
+    `/dashboard/properties/${property.id}`,
+  );
 
   // Open problems, read from the ledger: a report with no later resolution pointing at it.
   const [issueRes, featureRes] = roomIds.length
@@ -197,6 +225,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
           </a>
         </div>
       </header>
+
+      <SetupProgress steps={steps} />
 
       {readiness && turnover && (
         <ReadinessPanel
