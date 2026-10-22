@@ -39,6 +39,8 @@ export function messageFor(status: number, serverMessage?: string): string {
       return serverMessage?.includes("fingerprint")
         ? "The photo changed while uploading. Retake it."
         : "Those details couldn't be recorded. Check them and try again.";
+    case 503:
+      return serverMessage ?? "The service isn't fully set up yet.";
     default:
       return "Something went wrong on our side. Try again in a moment.";
   }

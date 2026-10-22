@@ -9,6 +9,11 @@ export function errorResponse(err: unknown): Response {
   if (err instanceof ZodError) {
     return Response.json({ error: "invalid request", issues: err.issues }, { status: 400 });
   }
+  // A missing setting is the deployer's to fix, and the name is not a secret: say which one.
+  if (err instanceof Error && err.message.startsWith("Missing required environment variable")) {
+    console.error(err);
+    return Response.json({ error: `${err.message}. Add it in the hosting settings and redeploy.` }, { status: 503 });
+  }
   console.error(err);
   return Response.json({ error: "internal error" }, { status: 500 });
 }

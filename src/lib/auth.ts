@@ -17,8 +17,11 @@ export async function authenticate(request: Request): Promise<Principal | null> 
   const token = bearerToken(request);
   if (!token) return null;
 
-  const capability = await verifyCapability(env.capabilitySecret, token);
-  if (capability.ok) return { kind: "capability", claims: capability.claims };
+  // Capability links need CAPABILITY_SECRET; a manager's session token doesn't, so don't fail it for lack of one.
+  if (process.env.CAPABILITY_SECRET) {
+    const capability = await verifyCapability(env.capabilitySecret, token);
+    if (capability.ok) return { kind: "capability", claims: capability.claims };
+  }
 
   const { data, error } = await serviceClient().auth.getUser(token);
   if (error || !data.user) return null;
