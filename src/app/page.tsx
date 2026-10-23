@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { Badge, Logo, Panel } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 
@@ -53,13 +55,24 @@ const STEPS = [
   },
 ];
 
-export default function Home() {
+/** Whether a manager is already signed in, so the page can lead straight back to their dashboard. */
+async function signedIn(): Promise<boolean> {
+  try {
+    const { data } = await createSessionClient(await cookies()).auth.getUser();
+    return Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
+
+export default async function Home() {
+  const manager = await signedIn();
   return (
     <div className="min-h-dvh">
       <header className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-4 sm:px-6">
         <Logo />
-        <Link href="/login" className={button("secondary", "sm")}>
-          Manager sign-in
+        <Link href={manager ? "/dashboard" : "/login"} className={button("secondary", "sm")}>
+          {manager ? "Open dashboard" : "Manager sign-in"}
         </Link>
       </header>
 
@@ -76,8 +89,8 @@ export default function Home() {
               show when damage happened and who was responsible.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href="/login" className={button("primary", "lg")}>
-                Sign in to manage properties
+              <Link href={manager ? "/dashboard" : "/login"} className={button("primary", "lg")}>
+                {manager ? "Open your dashboard" : "Sign in to manage properties"}
               </Link>
               <a href="#how" className={button("ghost", "lg")}>
                 How it works
