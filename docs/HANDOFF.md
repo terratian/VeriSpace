@@ -108,3 +108,9 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 
 ## Removing properties
 - Settings on the property page has "Remove property". With no recorded history it deletes the property, rooms and stays. With history (the ledger can't be erased) it archives: `properties.archived_at` is set, the dashboard hides it, crew and guest links stop working. Blocked while a guest is in house. Needs migration `20261026000000_property_archive.sql` for archiving; `supabase/apply-pending.sql` holds migrations 22 to 26.
+
+## Independent timestamps
+
+The ledger is tamper-evident in normal use (database triggers block changes), but its time comes from the server clock. Once a day `/api/anchor` (a Vercel cron, `vercel.json`) combines the latest fingerprint of every room in a property into one SHA-256 digest and has an outside RFC 3161 timestamp authority sign it. The full reply is stored in `ledger_anchors` (append-only, owner can read). The custody page lists them, downloads the `.tsr`, and checks that today's records still match the latest one.
+
+Setup: run migration `20261027000000_ledger_anchors.sql` (also in `supabase/apply-pending.sql`), add `CRON_SECRET` (any long random string) in Vercel and redeploy. Optional `TSA_URL` (default `https://freetsa.org/tsr`; use a commercial authority such as DigiCert for formal evidence). Check `/api/health` for `cronSecret`. Not yet exercised against a live authority from this environment (outbound access is blocked); the request bytes are verified identical to `openssl ts -query`.

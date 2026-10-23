@@ -17,6 +17,7 @@ export function GET() {
       supabasePublishableKey: set("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
       supabaseServiceRole: set("SUPABASE_SERVICE_ROLE_KEY"),
       capabilitySecret: set("CAPABILITY_SECRET"),
+      cronSecret: set("CRON_SECRET"),
       appOrigin: set("APP_ORIGIN"),
       photoStorage: set("STORAGE_ENDPOINT") && set("STORAGE_BUCKET") && set("STORAGE_ACCESS_KEY_ID") && set("STORAGE_SECRET_ACCESS_KEY"),
       demoPages: demoEnabled(),

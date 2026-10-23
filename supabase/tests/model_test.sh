@@ -13,6 +13,7 @@ check() { if [ "$2" = "$3" ]; then echo "PASS  $1"; else echo "FAIL  $1 (expecte
 expect_error() { case "$3" in *"$2"*) echo "PASS  $1";; *) echo "FAIL  $1 (got: $3)"; fail=1;; esac; }
 last() { grep -v '^$' | tail -1; }
 
+
 $ADMIN -c "drop database if exists $DB" -c "create database $DB" || exit 1
 $ADMIN -c "do \$\$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
@@ -112,6 +113,15 @@ as_user $B "update properties set archived_at = null where id='$PA';" >/dev/null
 check "other owner cannot un-archive it" "t" "$($P -c "select archived_at is not null from properties where id='$PA'")"
 as_user $A "delete from rooms where id='$RA';" >/dev/null 2>&1
 check "a room with history cannot be deleted" "1" "$($P -c "select count(*) from rooms where id='$RA'")"
+
+# Independent timestamps: owner can read their own, nobody can change them.
+$P -c "insert into ledger_anchors(property_id,digest,heads,tsa_url,reply_b64) values ('$PA', repeat('a',64), '[]', 'https://tsa.test', 'AAAA');" >/dev/null
+check "owner sees their property's timestamps" "1" "$(as_user $A "select count(*) from ledger_anchors;" | last)"
+check "other owner sees none" "0" "$(as_user $B "select count(*) from ledger_anchors;" | last)"
+expect_error "a timestamp cannot be changed" "append-only" "$($P -c "update ledger_anchors set digest = repeat('b',64);" 2>&1)"
+expect_error "a timestamp cannot be deleted" "append-only" "$($P -c "delete from ledger_anchors;" 2>&1)"
+expect_error "timestamps cannot be truncated" "append-only" "$($P -c "truncate ledger_anchors;" 2>&1)"
+
 
 $ADMIN -c "drop database if exists $DB" >/dev/null 2>&1 || { echo "FAIL  could not drop $DB"; fail=1; }
 [ $fail -eq 0 ] && echo "ALL PASSED"

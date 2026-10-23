@@ -113,6 +113,23 @@ export default async function CustodyPage({
   }
 
   const entries = (entriesRes.data ?? []) as unknown as Entry[];
+
+  // Independent timestamps: the signed proofs, and whether today's records still match the latest one.
+  const { data: anchorData } = await supabase
+    .from("ledger_anchors")
+    .select("id, digest, heads, gen_time, created_at, tsa_url")
+    .eq("property_id", id)
+    .order("created_at", { ascending: false })
+    .limit(10);
+  const anchors = (anchorData ?? []) as { id: string; digest: string; heads: { roomId: string; seq: number; rowHash: string }[]; gen_time: string | null; created_at: string; tsa_url: string }[];
+  let anchorMatches: boolean | null = null;
+  if (anchors[0]) {
+    anchorMatches = true;
+    for (const h of anchors[0].heads) {
+      const { data: row } = await supabase.from("room_state_ledger").select("row_hash").eq("room_id", h.roomId).eq("seq", h.seq).maybeSingle();
+      if ((row as { row_hash: string } | null)?.row_hash !== h.rowHash) anchorMatches = false;
+    }
+  }
   const featureName = new Map(((featuresRes.data ?? []) as { id: string; name: string }[]).map((f) => [f.id, f.name]));
   const seqOfId = new Map(entries.map((e) => [Number(e.id), e.seq]));
   const start = new Date(stay.starts_at).getTime();
@@ -265,6 +282,50 @@ export default async function CustodyPage({
             })}
           </tbody>
         </table>
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-2 text-[17px] font-semibold">Independent timestamps</h2>
+        <p className="mb-3 max-w-[70ch] text-[13px] text-mute">
+          Once a day, the latest fingerprint of every room is signed with the time by an outside timestamp authority. The signed proof does not depend on this server&apos;s clock or database, so it shows the
+          record existed in this form no later than that time.
+        </p>
+        {anchors.length === 0 ? (
+          <p className="text-mute">No timestamps yet. The first one is added after the next daily run.</p>
+        ) : (
+          <>
+            <p className="mb-3 text-[13px]">
+              {anchorMatches ? <Badge tone="mint">Records match the latest timestamp</Badge> : <Badge tone="red">Records differ from the latest timestamp</Badge>}
+            </p>
+            <table className="w-full max-w-[720px] border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>Signed time</th>
+                  <th className={th}>Fingerprint</th>
+                  <th className={th}>Proof</th>
+                </tr>
+              </thead>
+              <tbody>
+                {anchors.map((a) => (
+                  <tr key={a.id} className="border-t border-edge">
+                    <td className={`${td} whitespace-nowrap tabular-nums`}>{fmtDateTime(a.gen_time ?? a.created_at, tz)}</td>
+                    <td className={`${td} font-mono text-[11px]`} title={a.digest}>
+                      {a.digest.slice(0, 16)}
+                    </td>
+                    <td className={`${td} print:hidden`}>
+                      <a className="text-mint underline" href={`/api/anchors/${a.id}`}>
+                        Download .tsr
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-2 max-w-[70ch] text-[12px] text-mute">
+              To check a proof yourself: <code>openssl ts -verify -digest &lt;fingerprint&gt; -sha256 -in proof.tsr -CAfile authority-ca.pem</code>
+            </p>
+          </>
+        )}
       </section>
 
       <section className="mt-8">
