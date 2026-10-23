@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createBrowserSupabase } from "@/lib/supabase/browser";
 import { button, field, fieldLabel } from "@/components/ui/styles";
 
-export default function LoginForm({ failed }: { failed: boolean }) {
+export default function LoginForm({ failed, next = "/dashboard" }: { failed: boolean; next?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(
@@ -13,7 +13,7 @@ export default function LoginForm({ failed }: { failed: boolean }) {
   );
   const [busy, setBusy] = useState<"google" | "email" | null>(null);
 
-  const redirectTo = () => `${window.location.origin}/auth/callback`;
+  const redirectTo = () => `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
   async function google() {
     setBusy("google");
@@ -37,7 +37,7 @@ export default function LoginForm({ failed }: { failed: boolean }) {
         setMessage({ tone: "error", text: error.message });
         setBusy(null);
       } else {
-        window.location.assign("/dashboard");
+        window.location.assign(next);
       }
       return;
     }

@@ -23,12 +23,12 @@ export default async function WalkPage({ params }: { params: Promise<{ id: strin
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/dashboard/properties/${id}/walk`)}`);
   // The capture screen talks to the ledger API with the manager's own session.
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(`/login?next=${encodeURIComponent(`/dashboard/properties/${id}/walk`)}`);
 
   const { data: property, error } = await supabase
     .from("properties")

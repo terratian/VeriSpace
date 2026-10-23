@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import ScanCapture from "@/components/dashboard/ScanCapture";
@@ -8,6 +8,8 @@ import { ScanStudioLoader } from "@/components/dashboard/ScanViewerLoader";
 import { Breadcrumbs, DbError, EmptyState, Panel } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { describeDbError } from "@/lib/db-errors";
+import { requestOrigin } from "@/lib/origin";
+import { qrDataUrl } from "@/lib/qr";
 import { FEATURE_STATUS_EVENT, featureStatuses, stateOf } from "@/lib/model";
 import { SCAN_COMPLETE_EVENT, SCAN_FRAME_EVENT, latestScan, type Pin } from "@/lib/scan";
 import { photoStoreFromEnv, storageConfigFromEnv } from "@/lib/storage";
@@ -27,11 +29,12 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const here = `/dashboard/properties/${id}/scan${roomParam ? `?room=${encodeURIComponent(roomParam)}` : ""}`;
+  if (!user) redirect(`/login?next=${encodeURIComponent(here)}`);
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(`/login?next=${encodeURIComponent(here)}`);
 
   const { data: property, error } = await supabase
     .from("properties")
@@ -90,6 +93,10 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     return a ? [{ id: p.id, featureId: a.id, label: a.name, yaw: Number(p.yaw), pitch: Number(p.pitch), status: a.status }] : [];
   });
 
+  // A code for the phone: open this room's scan there, signing in first if needed.
+  const phoneLink = `${requestOrigin(await headers())}/dashboard/properties/${property.id}/scan?room=${room.id}`;
+  const qr = await qrDataUrl(phoneLink);
+
   return (
     <div className="py-6">
       <Breadcrumbs items={crumbs} />
@@ -126,6 +133,14 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
       </section>
 
       <Panel className="mt-8 p-5">
+        <details className="mb-5 max-w-[560px]">
+          <summary className="cursor-pointer text-sm text-mint hover:underline">On a computer? Open this on your phone</summary>
+          <div className="mt-3 flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr} alt={`QR code that opens the ${room.name} scan on a phone`} width={160} height={160} className="rounded-lg" />
+            <p className="max-w-[32ch] text-sm text-ash">Point your phone&apos;s camera at the code. It opens the scan for {room.name}. Sign in if it asks, then tap Start scan.</p>
+          </div>
+        </details>
         <ScanCapture key={room.id} roomId={room.id} roomName={room.name} token={session.access_token} />
         {storageConfigFromEnv() === null && (
           <p className="mt-4 text-sm text-amber">Photo storage isn&apos;t set up yet. Scans need it to be sealed.</p>
