@@ -50,6 +50,21 @@ for (let i = 0; i < 11; i++) await p.keyboard.press("ArrowUp"); // up 88
 console.log("after looking up 88:", await visibleLabel());
 await p.screenshot({ path: `${shots}/scan-view-1.png` });
 
+// Measuring: four floor corners 90 degrees apart, each 32 degrees below the horizon, seen from 4.5 ft up, are 7.2 ft away.
+// That is a diamond whose smallest bounding square is about 10.2 ft a side (104 sq ft).
+await p.goto(`${base}/dev-preview/scan-measure`, { waitUntil: "networkidle" });
+await p.getByRole("button", { name: /Mark floor corners/ }).click();
+const stage = p.locator('[role="application"]');
+await stage.focus();
+for (let i = 0; i < 4; i++) await p.keyboard.press("ArrowDown"); // 32 degrees down
+const box = await stage.boundingBox();
+for (let c = 0; c < 4; c++) {
+  await p.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  for (let i = 0; i < 11; i++) await p.keyboard.press("ArrowRight"); // 88 degrees, close to a quarter turn
+}
+console.log("estimate:", (await p.getByTestId("estimate").textContent())?.trim());
+await p.screenshot({ path: `${shots}/scan-measure.png` });
+
 // Capture, manual: no direction sensors in this browser, so photos are placed in order.
 await p.goto(`${base}/dev-preview/scan`, { waitUntil: "networkidle" });
 await p.getByRole("button", { name: "Start scan" }).click();

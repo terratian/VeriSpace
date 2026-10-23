@@ -118,7 +118,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
         <h2 className="mb-3 text-lg font-semibold">{room.name}</h2>
         {frames.length > 0 && scan ? (
           <>
-            <ScanStudioLoader scanId={scan.scanId} frames={frames} assets={assets} pins={pins} />
+            <ScanStudioLoader roomId={room.id} scanId={scan.scanId} frames={frames} assets={assets} pins={pins} />
             <p className="mt-3 text-sm text-mute">
               {scan.complete ? "Sealed" : "Unfinished scan"} {fmtDateTime(scan.at, property.timezone as string)} · {scan.frames.length} photos
               {scan.mode === "manual" ? " · placed in order (no direction sensors)" : ""}

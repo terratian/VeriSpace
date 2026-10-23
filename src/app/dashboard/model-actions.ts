@@ -183,3 +183,27 @@ export async function setFeatureStatus(_prev: ActionState, fd: FormData): Promis
   refresh();
   return { ok: true, message: "Recorded in the ledger" };
 }
+
+const measuredSchema = z.object({
+  roomId: z.guid(),
+  widthFt: z.number().min(1, "That room is too small to be right.").max(250, "That room is too large to be right."),
+  lengthFt: z.number().min(1, "That room is too small to be right.").max(250, "That room is too large to be right."),
+  heightFt: z.number().min(5, "The ceiling looks too low to be right.").max(40, "The ceiling looks too high to be right.").nullable(),
+});
+
+/** Save the size worked out from corners marked in a scan. Floor and plan position stay as they are. */
+export async function saveMeasuredSize(input: unknown): Promise<ActionState> {
+  const parsed = measuredSchema.safeParse(input);
+  if (!parsed.success) return fail(firstIssue(parsed.error));
+  const p = parsed.data;
+  const { supabase } = await signedInClient();
+  const busy = await occupiedMessage(supabase, p.roomId);
+  if (busy) return fail(busy);
+  const update: Record<string, number> = { width_m: meters(p.widthFt) as number, length_m: meters(p.lengthFt) as number };
+  if (p.heightFt !== null) update.height_m = meters(p.heightFt) as number;
+  const { data, error } = await supabase.from("rooms").update(update).eq("id", p.roomId).select("id");
+  if (error) return fail(describeDbError(error));
+  if (!data?.length) return fail("Room not found.");
+  refresh();
+  return { ok: true, message: "Room size saved" };
+}
