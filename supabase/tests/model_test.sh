@@ -100,6 +100,19 @@ check "feature status entry is recorded and chains" "t" "$($P -c "select ok from
 $P -c "delete from rooms where id='$RB'" >/dev/null 2>&1
 check "deleting a room removes its features" "0" "$($P -c "select count(*) from room_features where room_id='$RB'")"
 
+# Removing a property: one with no history can be deleted by its owner; archiving needs the archived_at column.
+PC=00000000-0000-0000-0000-00000000000c
+RC=00000000-0000-0000-0000-0000000000c1
+$P -c "insert into properties(id,owner_id,name) values ('$PC','$A','Empty'); insert into rooms(id,property_id,name) values ('$RC','$PC','Den');" >/dev/null
+as_user $A "delete from rooms where property_id='$PC'; delete from properties where id='$PC';" >/dev/null
+check "owner can delete a property that never recorded anything" "0" "$($P -c "select count(*) from properties where id='$PC'")"
+as_user $A "update properties set archived_at = now() where id='$PA';" >/dev/null
+check "owner can archive a property" "t" "$($P -c "select archived_at is not null from properties where id='$PA'")"
+as_user $B "update properties set archived_at = null where id='$PA';" >/dev/null
+check "other owner cannot un-archive it" "t" "$($P -c "select archived_at is not null from properties where id='$PA'")"
+as_user $A "delete from rooms where id='$RA';" >/dev/null 2>&1
+check "a room with history cannot be deleted" "1" "$($P -c "select count(*) from rooms where id='$RA'")"
+
 $ADMIN -c "drop database if exists $DB" >/dev/null 2>&1 || { echo "FAIL  could not drop $DB"; fail=1; }
 [ $fail -eq 0 ] && echo "ALL PASSED"
 exit $fail

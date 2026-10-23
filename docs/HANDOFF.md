@@ -105,3 +105,6 @@ Light/dark is set by `data-theme` on `<html>` (tokens in `globals.css`; always-d
 - The viewer (`ScanViewer`) lays the photos on a sphere with CSS 3D (no WebGL, so no storage CORS setup). It overlaps and feathers photos; it does not stitch them. The "Photo coverage" slider corrects the assumed field of view.
 - Logic and tests: `src/lib/scan.ts`. Browser check: `scripts/scan-flow.mjs`. Demos: `/dev-preview/scan`, `/dev-preview/scan-view`.
 - Next: estimate room shape and dimensions from the panorama; pin assets on the view; crew scans for damage comparison.
+
+## Removing properties
+- Settings on the property page has "Remove property". With no recorded history it deletes the property, rooms and stays. With history (the ledger can't be erased) it archives: `properties.archived_at` is set, the dashboard hides it, crew and guest links stop working. Blocked while a guest is in house. Needs migration `20261026000000_property_archive.sql` for archiving; `supabase/apply-pending.sql` holds migrations 22 to 26.

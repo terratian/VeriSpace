@@ -48,6 +48,10 @@ export default async function LinkGate({ token, role }: { token: string; role: C
   const { claims } = result;
   const db = serviceClient();
 
+  // A removed (archived) property's links stop working. Before the archive update is applied the column is absent: ignore that.
+  const archived = await db.from("properties").select("archived_at").eq("id", claims.propertyId).maybeSingle();
+  if (!archived.error && (archived.data as { archived_at: string | null } | null)?.archived_at) return <LinkProblem reason="invalid" />;
+
   let roomQuery = db.from("rooms").select("id, name").eq("property_id", claims.propertyId).order("name");
   if (claims.roomIds) roomQuery = roomQuery.in("id", claims.roomIds);
 

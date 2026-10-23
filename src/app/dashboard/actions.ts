@@ -51,6 +51,52 @@ export async function addProperty(_prev: ActionState, fd: FormData): Promise<Act
   redirect(`/dashboard/properties/${data.id}/setup?step=rooms`);
 }
 
+/**
+ * Remove a property. One that has never recorded anything is deleted outright. One with ledger
+ * history can't be erased, so it is archived instead: hidden from the dashboard, links switched off,
+ * record kept. Not allowed while a guest is in house.
+ */
+export async function deleteProperty(_prev: ActionState, fd: FormData): Promise<ActionState> {
+  const id = z.guid().safeParse(text(fd, "propertyId"));
+  if (!id.success) return fail("Property not found.");
+  const { supabase } = await signedInClient();
+
+  const { data: property } = await supabase.from("properties").select("id").eq("id", id.data).maybeSingle();
+  if (!property) return fail("Property not found.");
+
+  const now = new Date().toISOString();
+  const { data: stay } = await supabase.from("reservations").select("id").eq("property_id", id.data).lte("starts_at", now).gt("ends_at", now).limit(1).maybeSingle();
+  if (stay) return fail("A guest is in house. Remove the property after checkout.");
+
+  const { data: rooms } = await supabase.from("rooms").select("id").eq("property_id", id.data);
+  const roomIds = (rooms ?? []).map((r) => r.id as string);
+  let history = 0;
+  if (roomIds.length > 0) {
+    const { count, error } = await supabase.from("room_state_ledger").select("id", { count: "exact", head: true }).in("room_id", roomIds);
+    if (error) return fail(describeDbError(error));
+    history = count ?? 0;
+  }
+
+  if (history > 0) {
+    const { error } = await supabase.from("properties").update({ archived_at: now }).eq("id", id.data);
+    if (error) {
+      return fail(error.code === "42703" ? "Archiving needs the latest database update (20261026000000_property_archive.sql). Run it in Supabase, then try again." : describeDbError(error));
+    }
+  } else {
+    const steps = [
+      supabase.from("reservations").delete().eq("property_id", id.data),
+      supabase.from("rooms").delete().eq("property_id", id.data),
+      supabase.from("properties").delete().eq("id", id.data),
+    ];
+    for (const step of steps) {
+      const { error } = await step;
+      if (error) return fail(describeDbError(error));
+    }
+  }
+  refresh();
+  redirect("/dashboard");
+}
+
 export async function updateProperty(_prev: ActionState, fd: FormData): Promise<ActionState> {
   const id = z.guid().safeParse(text(fd, "propertyId"));
   const parsed = propertySchema.safeParse({ name: text(fd, "name"), address: text(fd, "address"), timezone: text(fd, "timezone") });

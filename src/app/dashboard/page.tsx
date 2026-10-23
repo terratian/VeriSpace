@@ -54,14 +54,18 @@ export default async function Dashboard() {
 
   const now = new Date();
   // Row Level Security limits every query here to the signed-in owner's rows.
-  const [propertiesRes, activityRes, ledgerCountRes] = await Promise.all([
-    supabase
+  const listProperties = (hideArchived: boolean) => {
+    const q = supabase
       .from("properties")
       .select("id, name, address, timezone, rooms(id, name), reservations(id, starts_at, ends_at, guest_name, source)")
       .gte("reservations.ends_at", now.toISOString())
       .order("created_at")
       .order("starts_at", { referencedTable: "reservations" })
-      .limit(2, { referencedTable: "reservations" }),
+      .limit(2, { referencedTable: "reservations" });
+    return hideArchived ? q.is("archived_at", null) : q;
+  };
+  const [firstTry, activityRes, ledgerCountRes] = await Promise.all([
+    listProperties(true),
     supabase
       .from("room_state_ledger")
       .select("id, seq, event_type, actor_role, created_at, frame_sha256, rooms(name, properties(name))")
@@ -69,6 +73,9 @@ export default async function Dashboard() {
       .limit(8),
     supabase.from("room_state_ledger").select("id", { count: "exact", head: true }),
   ]);
+
+  // Before the archive update is applied the column doesn't exist; show everything rather than fail.
+  const propertiesRes = firstTry.error?.code === "42703" ? await listProperties(false) : firstTry;
 
   if (propertiesRes.error) {
     return (

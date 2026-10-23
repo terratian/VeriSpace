@@ -8,6 +8,7 @@ import { AddStayForm } from "@/components/dashboard/AddStayForm";
 import { UpkeepPanel, type IssueView } from "@/components/dashboard/UpkeepPanel";
 import { SetupProgress } from "@/components/dashboard/SetupProgress";
 import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
+import { DeletePropertyForm } from "@/components/dashboard/DeletePropertyForm";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
 import { StayRow, type StayData } from "@/components/dashboard/StayRow";
@@ -244,6 +245,7 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             propertyId={property.id}
             initial={{ name: property.name, address: property.address, timezone: tz }}
           />
+          <DeletePropertyForm propertyId={property.id} name={property.name} />
         </Panel>
       </details>
 
