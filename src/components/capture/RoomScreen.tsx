@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, Camera, Check, Flag, Loader2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Camera, Check, Eye, Flag, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
 import { baselineStatus, canFinish, crewStatus, guestStatus, type RoomProgress } from "@/lib/capture";
@@ -46,6 +46,8 @@ export function RoomScreen({
   busy,
   error,
   shots,
+  stage,
+  onLookAround,
   onBack,
   onStart,
   onFinish,
@@ -63,6 +65,10 @@ export function RoomScreen({
   busy: boolean;
   error: string;
   shots: SessionShot[];
+  /** Where a guest is in the stay; during it the room offers help, not photos. */
+  stage?: "checkin" | "during" | "checkout";
+  /** Opens the look-around view, when the room has a scan. */
+  onLookAround?: () => void;
   onBack: () => void;
   onStart: () => void;
   onFinish: () => void;
@@ -122,7 +128,9 @@ export function RoomScreen({
           <Badge tone={status.tone}>{status.label}</Badge>
         </div>
         <p className="mt-2 max-w-[44ch] text-ash">
-          {mode === "arrival"
+          {stage === "during"
+            ? "Guides and help for what's in this room."
+            : mode === "arrival"
             ? "Photograph the room as you find it, including anything already worn or marked, so its condition when you arrived is on record."
             : "Photograph the room as you leave it, so its condition at departure is on record."}
         </p>
@@ -131,11 +139,19 @@ export function RoomScreen({
             {error}
           </p>
         )}
+        {onLookAround && (
+          <button type="button" onClick={onLookAround} className={`${button("secondary", "lg")} mt-6 w-full`}>
+            <Eye className="size-5" aria-hidden="true" />
+            Look around the room
+          </button>
+        )}
         <RoomGuide content={room.content} features={room.features} resources={room.resources} />
-        <button type="button" onClick={onPhoto} className={`${button("primary", "lg")} mt-6 w-full`}>
-          <Camera className="size-5" aria-hidden="true" />
-          {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}
-        </button>
+        {stage !== "during" && (
+          <button type="button" onClick={onPhoto} className={`${button("primary", "lg")} mt-6 w-full`}>
+            <Camera className="size-5" aria-hidden="true" />
+            {progress.photos > 0 ? `Add another ${label} photo` : `Take ${label} photo`}
+          </button>
+        )}
         <button type="button" onClick={onIssue} className={`${button("secondary", "lg")} mt-3 w-full`}>
           <AlertTriangle className="size-5" aria-hidden="true" />
           Report a problem

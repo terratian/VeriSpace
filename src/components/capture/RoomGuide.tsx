@@ -6,7 +6,7 @@ import type { RoomFeatureInfo } from "./RoomList";
 import { sortContent, type RoomContent } from "@/lib/guide";
 
 /** What the manager wrote about this room for guests. Allergen and health notes come first and stay open. */
-function ResourceLinks({ items }: { items: GuestResource[] }) {
+export function ResourceLinks({ items }: { items: GuestResource[] }) {
   return (
     <ul className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
       {items.map((r) => (

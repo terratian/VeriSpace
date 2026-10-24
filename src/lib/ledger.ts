@@ -44,7 +44,7 @@ export const ROLE_EVENTS: Record<"crew" | "guest", readonly string[]> = {
     "maintenance_done",
     "inspection",
   ],
-  guest: ["guest_arrival_scan", "guest_checkout_scan", "issue_reported", "condition_ack"],
+  guest: ["guest_arrival_scan", "guest_checkout_scan", "issue_reported", "condition_ack", "checkout_confirm"],
 };
 
 export interface RoomRecord {

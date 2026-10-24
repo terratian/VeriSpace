@@ -22,6 +22,7 @@ export function ReviewSheet({
   onCancel,
   onRecorded,
   onQueue,
+  extra,
   task,
   demo = false,
 }: {
@@ -36,6 +37,8 @@ export function ReviewSheet({
   onRecorded: (event: RecordedEvent, shot: Shot) => void;
   /** Keep the photo on this phone to send later. Offered when there is no signal. */
   onQueue?: (input: EventInput) => Promise<void>;
+  /** Extra payload fields, such as the asset a problem report is about. */
+  extra?: Record<string, unknown>;
   /** The checklist task this photo completes, when it was taken for one. */
   task?: { id: string; label: string };
   /** Public demo: record nothing, just show the flow. */
@@ -63,7 +66,7 @@ export function ReviewSheet({
         await uploadShot(token, roomId, shot);
         uploaded.current = true;
       }
-      const event = await sendEvent(token, { roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label });
+      const event = await sendEvent(token, { roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label, extra });
       onRecorded(event, shot);
     } catch (err) {
       if (err instanceof CaptureError) {
@@ -129,7 +132,7 @@ export function ReviewSheet({
             <button
               type="button"
               disabled={saving}
-              onClick={() => void onQueue({ roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label })}
+              onClick={() => void onQueue({ roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label, extra })}
               className={`${button("secondary", "lg")} mt-3 w-full`}
             >
               Save on this phone and send later

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { ModuleKey } from "@/lib/brand";
 import { toneClasses, type Tone } from "./styles";
 
 export function Badge({ tone = "neutral", children, className = "" }: { tone?: Tone; children: ReactNode; className?: string }) {
@@ -16,14 +17,19 @@ export function Panel({ children, className = "" }: { children: ReactNode; class
   return <div className={`rounded-[14px] border border-edge bg-graphite ${className}`}>{children}</div>;
 }
 
-export function Logo({ className = "" }: { className?: string }) {
+export function Logo({ className = "", module }: { className?: string; module?: ModuleKey }) {
+  // The platform name stands alone; a module is shown as its own name (VeriService, VeriStay) or as "VeriSpace Suite".
+  const word = module === "service" ? "VeriService" : module === "stay" ? "VeriStay" : "VeriSpace";
   return (
     <span className={`inline-flex items-center gap-2.5 font-semibold tracking-tight text-white ${className}`}>
       <svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="#66FCF1" strokeWidth="1.7" aria-hidden="true">
         <path d="M14 2 25 8v12l-11 6L3 20V8z" />
         <path d="M3 8l11 6 11-6M14 14v12" />
       </svg>
-      VeriSpace
+      <span>
+        {word}
+        {module === "suite" && <span className="ml-1.5 font-normal text-mute">Suite</span>}
+      </span>
     </span>
   );
 }

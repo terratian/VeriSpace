@@ -19,6 +19,7 @@ async function Harness({ searchParams }: { searchParams: Promise<{ role?: string
       role={r}
       propertyName="Cedar Hollow Cabin"
       guestName="Maya Ortiz"
+      startsAt={new Date(now - 30 * 3600_000).toISOString()}
       endsAt={new Date(now + 20 * 3600_000).toISOString()}
       expiresAt={new Date(now + 30 * 3600_000).toISOString()}
       guide={{

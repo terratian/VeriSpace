@@ -8,7 +8,7 @@ export default function AppHeader({ email }: { email: string }) {
     <header className="sticky top-0 z-30 border-b border-edge bg-obsidian/85 backdrop-blur print:hidden">
       <div className="mx-auto flex h-14 max-w-[1120px] items-center gap-6 px-4 sm:px-6">
         <Link href="/" aria-label="VeriSpace home">
-          <Logo />
+          <Logo module="suite" />
         </Link>
         <nav aria-label="Main" className="flex items-center text-sm">
           <Link href="/dashboard" className="rounded-md px-3 py-1.5 text-white hover:bg-white/5">

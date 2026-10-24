@@ -29,6 +29,8 @@ export interface RoomInfo {
   checklist: ChecklistItem[];
   /** Task ids already recorded for this stay. */
   doneItems: string[];
+  /** A sealed scan exists, so guests can look around and tap pins. */
+  hasScan?: boolean;
 }
 
 export interface RoomStatus {

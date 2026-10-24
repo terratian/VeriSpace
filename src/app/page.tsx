@@ -42,16 +42,16 @@ function RoomTwin() {
 
 const STEPS = [
   {
-    title: "Crew photograph each room",
+    title: "VeriService walks your crew through it",
     body: "After a turnover, cleaners open a link on their phone and photograph each room before they finish it. There is nothing to install and no account to make.",
   },
   {
-    title: "Guests record their arrival",
-    body: "A link tied to the reservation lets guests photograph what they find at check-in, so existing wear is on the record before anyone touches it.",
+    title: "VeriStay looks after your guests",
+    body: "A link tied to the reservation is a concierge for check-in, the stay and checkout. Guests find help for what is in the room, and record how they found it.",
   },
   {
-    title: "Every entry is chained to the last",
-    body: "Each record carries the fingerprint of the one before it. Change or remove anything later and the chain stops verifying.",
+    title: "VeriSpace Suite keeps the record",
+    body: "You set up each room once. Every entry after that is chained to the one before it and independently time-stamped, so changing or removing anything later shows.",
   },
 ];
 

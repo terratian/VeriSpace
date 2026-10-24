@@ -25,11 +25,11 @@ const PROBLEMS = {
   },
 } as const;
 
-function LinkProblem({ reason }: { reason: keyof typeof PROBLEMS }) {
+function LinkProblem({ reason, role }: { reason: keyof typeof PROBLEMS; role?: CapabilityRole }) {
   const { title, body } = PROBLEMS[reason];
   return (
     <main className="mx-auto max-w-[480px] px-5 py-16">
-      <Logo className="text-[15px]" />
+      <Logo className="text-[15px]" module={role === "guest" ? "stay" : role === "crew" ? "service" : undefined} />
       <div role="alert" className="mt-12">
         <h1 className="text-[26px] font-semibold leading-tight">{title}</h1>
         <p className="mt-2 max-w-[40ch] text-ash">{body}</p>
@@ -42,7 +42,7 @@ function LinkProblem({ reason }: { reason: keyof typeof PROBLEMS }) {
 export default async function LinkGate({ token, role }: { token: string; role: CapabilityRole }) {
   const result = await verifyCapability(env.capabilitySecret, token);
   if (!result.ok || result.claims.role !== role) {
-    return <LinkProblem reason={result.ok ? "invalid" : result.reason} />;
+    return <LinkProblem reason={result.ok ? "invalid" : result.reason} role={role} />;
   }
 
   const { claims } = result;
@@ -59,13 +59,13 @@ export default async function LinkGate({ token, role }: { token: string; role: C
     roomQuery,
     db.from("properties").select("name").eq("id", claims.propertyId).maybeSingle(),
     claims.reservationId
-      ? db.from("reservations").select("guest_name, ends_at").eq("id", claims.reservationId).maybeSingle()
+      ? db.from("reservations").select("guest_name, starts_at, ends_at").eq("id", claims.reservationId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
   if (roomsRes.error) throw new Error(roomsRes.error.message);
 
   // The stay only adds a greeting and a default photo type, so a failed lookup isn't fatal.
-  const stay = stayRes.error ? null : (stayRes.data as { guest_name: string | null; ends_at: string } | null);
+  const stay = stayRes.error ? null : (stayRes.data as { guest_name: string | null; starts_at: string; ends_at: string } | null);
   const rooms = (roomsRes.data ?? []) as { id: string; name: string }[];
   const roomIds = rooms.map((r) => r.id);
 
@@ -77,6 +77,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
   const featuresByRoom = new Map<string, RoomFeatureInfo[]>();
   const resourcesByRoom = new Map<string, GuestResource[]>();
   const resourcesByFeature = new Map<string, GuestResource[]>();
+  const scanRooms = new Set<string>();
 
   if (roomIds.length > 0) {
     if (role === "guest") {
@@ -104,6 +105,9 @@ export default async function LinkGate({ token, role }: { token: string; role: C
           map.set(key, [...(map.get(key) ?? []), item]);
         }
       }
+      // Rooms with a sealed scan, so the guest can look around.
+      const scanRes = await db.from("room_state_ledger").select("room_id").in("room_id", roomIds).eq("event_type", "scan_complete");
+      if (!scanRes.error) for (const r of (scanRes.data ?? []) as { room_id: string }[]) scanRooms.add(r.room_id);
       // Features guests can use, with their current status read from the ledger.
       const featRes = await db
         .from("room_features")
@@ -165,6 +169,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
       role={role}
       propertyName={(propertyRes.data as { name: string } | null)?.name ?? "Your property"}
       guestName={stay?.guest_name ?? null}
+      startsAt={stay?.starts_at ?? null}
       endsAt={stay?.ends_at ?? null}
       expiresAt={result.expiresAt.toISOString()}
       rooms={rooms.map((r) => ({
@@ -174,6 +179,7 @@ export default async function LinkGate({ token, role }: { token: string; role: C
         features: featuresByRoom.get(r.id) ?? [],
         checklist: tasksByRoom.get(r.id) ?? [],
         doneItems: doneByRoom.get(r.id) ?? [],
+        hasScan: scanRooms.has(r.id),
       }))}
       guide={guide}
       storageEnabled={storageConfigFromEnv() !== null}
