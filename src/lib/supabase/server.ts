@@ -24,7 +24,7 @@ export function supabaseLedgerDb(client: SupabaseClient = serviceClient()): Ledg
       if (!data) return null;
       const property = data.properties as unknown as { owner_id: string } | null;
       if (!property) return null;
-      return { id: data.id, propertyId: data.property_id, ownerId: property.owner_id };
+      return { id: data.id, propertyId: data.property_id, ownerId: property.owner_id, managerIds: await managerIdsFor(client, data.property_id, property.owner_id) };
     },
 
     async insertEvent(row: LedgerRow): Promise<AppendedEvent> {
@@ -76,4 +76,11 @@ export function supabaseLedgerDb(client: SupabaseClient = serviceClient()): Ledg
       };
     },
   };
+}
+
+/** The owner and any co-managers. Falls back to the owner alone until the co-manager migration is applied. */
+export async function managerIdsFor(client: SupabaseClient, propertyId: string, ownerId: string): Promise<string[]> {
+  const { data, error } = await client.rpc("property_manager_ids", { p_property: propertyId });
+  if (error || !Array.isArray(data)) return [ownerId];
+  return [...new Set([ownerId, ...(data as string[])])];
 }

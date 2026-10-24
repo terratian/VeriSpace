@@ -22,6 +22,8 @@ export interface PacketInput {
   anchors: { id: string; digest: string; heads: { roomId: string; seq: number; rowHash: string }[]; gen_time: string | null; tsa_url: string; reply: Uint8Array }[];
   photos: Map<string, Uint8Array>; // sha256 -> bytes; missing ones are listed with a reason
   wantedPhotos: string[];
+  /** The edit log for the property, oldest first. */
+  changes?: unknown[];
   generatedAt: Date;
 }
 
@@ -41,6 +43,7 @@ export function stayEntryIds(all: { id: number | string; room_id: string; event_
 const README = `VeriSpace dispute packet
 
 What is in here
+  config_changes.json  every logged edit to rooms, assets, checks and files (who, when, before and after)
   ledger.json     every entry for the property's rooms, in the exact form that was fingerprinted
   photos/         the original photos for this stay (named by their SHA-256 fingerprint)
   anchors/        signed timestamps from an outside authority (RFC 3161), when any exist
@@ -90,6 +93,7 @@ export function buildPacket(input: PacketInput): Uint8Array {
   files["ledger.json"] = strToU8(
     JSON.stringify({ generatedAt: input.generatedAt.toISOString(), property: input.property, stay: input.stay, rooms: input.rooms, entries, photos, anchors }, null, 1),
   );
+  files["config_changes.json"] = strToU8(JSON.stringify(input.changes ?? [], null, 1));
   files["anchors.json"] = strToU8(JSON.stringify(anchors.map(({ heads, ...a }) => ({ ...a, rooms: heads.length })), null, 1));
   files["verify.mjs"] = strToU8(VERIFY_SCRIPT);
   files["README.txt"] = strToU8(README);

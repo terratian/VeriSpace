@@ -18,11 +18,13 @@ $ADMIN -c "drop database if exists $DB" -c "create database $DB" || exit 1
 $ADMIN -c "do \$\$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+  if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin; end if;
 end \$\$"
 $P -v ON_ERROR_STOP=1 -c "
   create schema auth;
   create function auth.uid() returns uuid language sql stable as
     \$\$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid \$\$;
+  create table auth.users (id uuid primary key, email text);
   grant usage on schema auth to anon, authenticated;
   grant execute on function auth.uid() to anon, authenticated;" >/dev/null || exit 1
 for f in "$HERE"/../migrations/*.sql; do
@@ -45,7 +47,7 @@ $P -c "insert into properties(id,owner_id,name) values ('$PA','$A','A house'),('
        insert into rooms(id,property_id,name) values ('$RA','$PA','A room'),('$RB','$PB','B room');" >/dev/null
 
 as_user() { # user id (empty for anon), sql
-  if [ -n "$1" ]; then $P -c "set role authenticated; select set_config('request.jwt.claim.sub','$1',false); $2" 2>&1
+  if [ -n "$1" ]; then $P -c "set role authenticated; select set_config('request.jwt.claim.sub','$1',false), set_config('request.jwt.claims','{\"sub\":\"$1\",\"email\":\"$1@test.dev\"}',false); $2" 2>&1
   else $P -c "set role anon; $2" 2>&1; fi
 }
 
@@ -127,6 +129,35 @@ expect_error "timestamps cannot be truncated" "append-only" "$($P -c "truncate l
 check "export rows re-hash to the stored fingerprints" "0" "$($P -c "select count(*) from ledger_export_rows('$RA') e where encode(digest(coalesce(e.prev_hash,'') || '|' || e.nonce || '|' || '$RA' || '|' || e.seq::text || '|' || e.actor_role || '|' || e.event_type || '|' || e.payload_text || '|' || coalesce(e.frame_sha256,'') || '|' || e.created_at_text, 'sha256'), 'hex') <> e.row_hash")"
 check "owner can export their room" "t" "$(as_user $A "select count(*) > 0 from ledger_export_rows('$RA');" | last)"
 check "other owner exports nothing" "0" "$(as_user $B "select count(*) from ledger_export_rows('$RA');" | last)"
+
+
+# Co-managers and the edit log.
+C=cccccccc-cccc-cccc-cccc-cccccccccccc
+$P -c "insert into auth.users(id,email) values ('$A','$A@test.dev'),('$B','$B@test.dev'),('$C','$C@test.dev')" >/dev/null
+check "a stranger cannot see someone else's property" "0" "$(as_user $C "select count(*) from properties where id='$PA';" | last)"
+as_user $B "insert into property_members(property_id,email) values ('$PA','$B@test.dev');" >/dev/null 2>&1
+check "a stranger cannot add themselves as co-manager" "0" "$($P -c "select count(*) from property_members")"
+as_user $A "insert into property_members(property_id,email,invited_by) values ('$PA','$B@test.dev','$A');" >/dev/null
+check "owner can add a co-manager by email" "1" "$($P -c "select count(*) from property_members where property_id='$PA'")"
+check "co-manager sees the property" "1" "$(as_user $B "select count(*) from properties where id='$PA';" | last)"
+check "co-manager sees its ledger" "t" "$(as_user $B "select count(*) > 0 from room_state_ledger where room_id='$RA';" | last)"
+as_user $B "update rooms set name='Renamed by co-manager' where id='$RA';" >/dev/null
+check "co-manager can edit a room" "Renamed by co-manager" "$($P -c "select name from rooms where id='$RA'")"
+as_user $B "delete from properties where id='$PA';" >/dev/null 2>&1
+check "co-manager cannot delete the property" "1" "$($P -c "select count(*) from properties where id='$PA'")"
+as_user $B "update properties set owner_id='$B' where id='$PA';" >/dev/null 2>&1
+check "co-manager cannot take ownership" "$A" "$($P -c "select owner_id from properties where id='$PA'")"
+as_user $B "insert into property_members(property_id,email) values ('$PA','$C@test.dev');" >/dev/null 2>&1
+check "co-manager cannot add managers" "1" "$($P -c "select count(*) from property_members where property_id='$PA'")"
+check "stranger still sees nothing" "0" "$(as_user $C "select count(*) from properties where id='$PA';" | last)"
+check "manager ids include owner and co-manager" "2" "$($P -c "select array_length(property_manager_ids('$PA'),1)")"
+check "edit by co-manager is logged with who" "$B@test.dev" "$($P -c "select actor_email from config_audit where table_name='rooms' and op='UPDATE' and new_row->>'name'='Renamed by co-manager'")"
+check "adding a co-manager is logged" "1" "$($P -c "select count(*) from config_audit where table_name='property_members' and op='INSERT' and property_id='$PA'")"
+check "audit keeps before and after" "t" "$($P -c "select old_row->>'name' is distinct from new_row->>'name' from config_audit where table_name='rooms' and new_row->>'name'='Renamed by co-manager'")"
+check "co-manager can read the edit log" "t" "$(as_user $B "select count(*) > 0 from config_audit where property_id='$PA';" | last)"
+check "stranger cannot read the edit log" "0" "$(as_user $C "select count(*) from config_audit;" | last)"
+expect_error "the edit log cannot be changed" "append-only" "$($P -c "update config_audit set op='DELETE';" 2>&1)"
+expect_error "the edit log cannot be deleted from" "append-only" "$($P -c "delete from config_audit;" 2>&1)"
 
 
 $ADMIN -c "drop database if exists $DB" >/dev/null 2>&1 || { echo "FAIL  could not drop $DB"; fail=1; }

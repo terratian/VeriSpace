@@ -5,7 +5,7 @@ import { errorResponse, readJson } from "@/lib/http";
 import { LedgerAuthError } from "@/lib/ledger";
 import { DEFAULT_CREW_HOURS, issueLink } from "@/lib/links";
 import { requestOrigin } from "@/lib/origin";
-import { serviceClient } from "@/lib/supabase/server";
+import { managerIdsFor, serviceClient } from "@/lib/supabase/server";
 
 const bodySchema = z.object({
   reservationId: z.guid(),
@@ -32,7 +32,10 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (error) throw new Error(error.message);
     const owner = (data?.properties as unknown as { owner_id: string } | null)?.owner_id;
-    if (!data || owner !== principal.userId) throw new LedgerAuthError("reservation not found", 404);
+    if (!data || !owner) throw new LedgerAuthError("reservation not found", 404);
+    if (owner !== principal.userId && !(await managerIdsFor(serviceClient(), data.property_id, owner)).includes(principal.userId)) {
+      throw new LedgerAuthError("reservation not found", 404);
+    }
 
     const link = await issueLink({
       secret: env.capabilitySecret,

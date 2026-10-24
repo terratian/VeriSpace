@@ -9,6 +9,7 @@ import { UpkeepPanel, type IssueView } from "@/components/dashboard/UpkeepPanel"
 import { SetupProgress } from "@/components/dashboard/SetupProgress";
 import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
 import { DeletePropertyForm } from "@/components/dashboard/DeletePropertyForm";
+import { TeamForms, type Member } from "@/components/dashboard/TeamForms";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
 import { StayRow, type StayData } from "@/components/dashboard/StayRow";
@@ -73,6 +74,14 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const rooms = (property.rooms ?? []) as unknown as RoomData[];
   const roomIds = rooms.map((r) => r.id);
   const now = new Date();
+  // Co-managers and alert contacts. Both need the newest migration; without it the section just shows empty.
+  const [teamRes, memberRes] = await Promise.all([
+    supabase.from("properties").select("owner_id, alert_email, alert_phone").eq("id", id).maybeSingle(),
+    supabase.from("property_members").select("id, email").eq("property_id", id).order("created_at"),
+  ]);
+  const team = (teamRes.error ? null : teamRes.data) as { owner_id: string; alert_email: string | null; alert_phone: string | null } | null;
+  const members = (memberRes.error ? [] : memberRes.data ?? []) as Member[];
+
   const tz = property.timezone as string;
   const zoneLabel = `${tz.replace(/_/g, " ")}, ${zoneAbbreviation(now, tz)}`;
 
@@ -245,7 +254,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             propertyId={property.id}
             initial={{ name: property.name, address: property.address, timezone: tz }}
           />
-          <DeletePropertyForm propertyId={property.id} name={property.name} />
+          <TeamForms propertyId={property.id} isOwner={!team || team.owner_id === user.id} members={members} alertEmail={team?.alert_email ?? null} alertPhone={team?.alert_phone ?? null} />
+          {(!team || team.owner_id === user.id) && <DeletePropertyForm propertyId={property.id} name={property.name} />}
         </Panel>
       </details>
 

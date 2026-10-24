@@ -51,6 +51,13 @@ export interface RoomRecord {
   id: string;
   propertyId: string;
   ownerId: string;
+  /** Owner plus co-managers. When absent, only the owner may manage. */
+  managerIds?: string[];
+}
+
+/** Whether this user may manage the room's property: the owner, or a co-manager the owner added. */
+export function canManageRoom(room: RoomRecord, userId: string): boolean {
+  return userId === room.ownerId || Boolean(room.managerIds?.includes(userId));
 }
 
 export interface LedgerRow {
@@ -104,8 +111,8 @@ export interface PhotoIndex {
 /** Throws LedgerAuthError unless `principal` may act on anything in `room`. */
 export function authorizeRoomAccess(principal: Principal, room: RoomRecord): void {
   if (principal.kind === "manager") {
-    if (principal.userId !== room.ownerId) {
-      throw new LedgerAuthError("not the owner of this property", 403);
+    if (!canManageRoom(room, principal.userId)) {
+      throw new LedgerAuthError("not a manager of this property", 403);
     }
     return;
   }
@@ -159,11 +166,17 @@ export function authorizeEvent(principal: Principal, room: RoomRecord, eventType
  * the request, so an event can't be filed under a stay the link wasn't issued for. When `photos` is
  * given, a photo fingerprint is only accepted once that photo is actually stored.
  */
+export interface AppendHooks {
+  /** Called once the entry is safely in the ledger. Must not throw into the caller. */
+  afterAppend?(info: { room: RoomRecord; eventType: string; payload: Record<string, unknown>; actorRole: "manager" | "crew" | "guest"; event: AppendedEvent }): void | Promise<void>;
+}
+
 export async function appendLedgerEvent(
   db: LedgerDb,
   principal: Principal,
   rawInput: unknown,
   photos?: PhotoIndex,
+  hooks?: AppendHooks,
 ): Promise<AppendedEvent> {
   const input = eventInputSchema.parse(rawInput);
   const room = await db.getRoom(input.roomId);
@@ -194,14 +207,21 @@ export async function appendLedgerEvent(
     payload.actorId = principal.userId;
   }
 
-  return db.insertEvent({
+  const actorRole = principal.kind === "manager" ? "manager" : principal.claims.role;
+  const event = await db.insertEvent({
     roomId: room.id,
-    actorRole: principal.kind === "manager" ? "manager" : principal.claims.role,
+    actorRole,
     eventType: input.eventType,
     payload,
     frameSha256: input.frameSha256,
     coords: input.coords,
   });
+  try {
+    await hooks?.afterAppend?.({ room, eventType: input.eventType, payload, actorRole, event });
+  } catch (err) {
+    console.error("after-append hook failed", err);
+  }
+  return event;
 }
 
 export async function verifyRoomChain(
@@ -211,8 +231,8 @@ export async function verifyRoomChain(
 ): Promise<ChainStatus> {
   const room = await db.getRoom(roomId);
   if (!room) throw new LedgerAuthError("room not found", 404);
-  if (principal.kind !== "manager" || principal.userId !== room.ownerId) {
-    throw new LedgerAuthError("only the property owner can verify the chain", 403);
+  if (principal.kind !== "manager" || !canManageRoom(room, principal.userId)) {
+    throw new LedgerAuthError("only the property's managers can verify the chain", 403);
   }
   return db.verifyChain(roomId);
 }

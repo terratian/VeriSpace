@@ -163,3 +163,19 @@ describe("issues and custody", () => {
     expect(db2.insertEvent).toHaveBeenCalledWith(expect.objectContaining({ payload: { actorId: OWNER } }));
   });
 });
+
+describe("co-managers", () => {
+  const CO = "00000000-0000-0000-0000-0000000000c0";
+  const db = () => fakeDb({ getRoom: async (id) => ({ id, propertyId: PROPERTY, ownerId: OWNER, managerIds: [OWNER, CO] }) });
+  it("lets a co-manager record entries", async () => {
+    await expect(appendLedgerEvent(db(), { kind: "manager", userId: CO }, { roomId: ROOM, eventType: "clean_start" })).resolves.toBeDefined();
+  });
+  it("still refuses other users", async () => {
+    await expect(appendLedgerEvent(db(), { kind: "manager", userId: "00000000-0000-0000-0000-0000000000dd" }, { roomId: ROOM, eventType: "x" })).rejects.toMatchObject({ status: 403 });
+  });
+  it("runs the after-append hook once and survives it failing", async () => {
+    const afterAppend = vi.fn(async () => { throw new Error("boom"); });
+    await expect(appendLedgerEvent(db(), { kind: "manager", userId: OWNER }, { roomId: ROOM, eventType: "clean_start" }, undefined, { afterAppend })).resolves.toBeDefined();
+    expect(afterAppend).toHaveBeenCalledTimes(1);
+  });
+});

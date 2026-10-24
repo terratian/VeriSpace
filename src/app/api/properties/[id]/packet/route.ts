@@ -72,7 +72,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     reply: new Uint8Array(Buffer.from(a.reply_b64, "base64")),
   }));
 
-  const zip = buildPacket({ property: property as never, stay, rooms, rows, anchors, photos, wantedPhotos: wanted, generatedAt: new Date() });
+  const { data: changeData } = await supabase.from("config_audit").select("id, table_name, row_id, op, old_row, new_row, actor_id, actor_email, created_at").eq("property_id", id).order("id").limit(5000);
+  const zip = buildPacket({ changes: changeData ?? [], property: property as never, stay, rooms, rows, anchors, photos, wantedPhotos: wanted, generatedAt: new Date() });
   const slug = String((property as { name: string }).name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "property";
   return new Response(zip as unknown as BodyInit, { headers: { "content-type": "application/zip", "content-disposition": `attachment; filename="verispace-packet-${slug}.zip"` } });
 }

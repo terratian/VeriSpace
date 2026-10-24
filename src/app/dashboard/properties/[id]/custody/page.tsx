@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { z } from "zod";
 import { Badge, Breadcrumbs, DbError, EmptyState } from "@/components/ui/primitives";
 import { PrintButton } from "@/components/ui/PrintButton";
+import { describeChange, type ChangeRow } from "@/lib/changes";
 import { describeDbError } from "@/lib/db-errors";
 import { byline } from "@/lib/issues";
 import { eventLabel } from "@/lib/labels";
@@ -122,6 +123,13 @@ export default async function CustodyPage({
     .order("created_at", { ascending: false })
     .limit(10);
   const anchors = (anchorData ?? []) as { id: string; digest: string; heads: { roomId: string; seq: number; rowHash: string }[]; gen_time: string | null; created_at: string; tsa_url: string }[];
+  const { data: changeData } = await supabase
+    .from("config_audit")
+    .select("id, table_name, op, old_row, new_row, actor_email, created_at")
+    .eq("property_id", id)
+    .order("id", { ascending: false })
+    .limit(100);
+  const changes = (changeData ?? []) as unknown as ChangeRow[];
   let anchorMatches: boolean | null = null;
   if (anchors[0]) {
     anchorMatches = true;
@@ -328,6 +336,38 @@ export default async function CustodyPage({
               To check a proof yourself: <code>openssl ts -verify -digest &lt;fingerprint&gt; -sha256 -in proof.tsr -CAfile authority-ca.pem</code>
             </p>
           </>
+        )}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-2 text-[17px] font-semibold">Changes to rooms, assets and checks</h2>
+        <p className="mb-3 max-w-[70ch] text-[13px] text-mute">
+          Every edit to this property&apos;s setup is logged by the database itself, with who made it and when, and the log can&apos;t be edited or erased. Baseline photos are ledger entries and can&apos;t be changed at all.
+        </p>
+        {changes.length === 0 ? (
+          <p className="text-mute">No changes logged yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className={th}>When</th>
+                  <th className={th}>Change</th>
+                  <th className={th}>By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {changes.slice(0, 40).map((c) => (
+                  <tr key={String(c.id)} className="border-t border-edge break-inside-avoid">
+                    <td className={`${td} whitespace-nowrap tabular-nums`}>{fmtDateTime(c.created_at, tz)}</td>
+                    <td className={td}>{describeChange(c)}</td>
+                    <td className={td}>{c.actor_email ?? "Unknown"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {changes.length > 40 && <p className="mt-2 text-[12px] text-mute">Showing the latest 40. The dispute packet has all of them.</p>}
+          </div>
         )}
       </section>
 

@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
+import { after } from "next/server";
+import { alertHook } from "@/lib/alertHook";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-state";
 import { ISSUE_CATEGORIES, ISSUE_RESOLVED, MANUAL_ENTRY_TYPES } from "@/lib/issues";
@@ -18,7 +21,12 @@ async function append(roomId: string, eventType: string, payload: Record<string,
   const { data: room } = await supabase.from("rooms").select("id").eq("id", roomId).maybeSingle();
   if (!room) return fail("Room not found.");
   try {
-    await appendLedgerEvent(supabaseLedgerDb(), { kind: "manager", userId: user.id }, { roomId, eventType, payload });
+    await appendLedgerEvent(supabaseLedgerDb(), { kind: "manager", userId: user.id }, { roomId, eventType, payload }, undefined, {
+      afterAppend: async (info) => {
+        const hook = alertHook(await headers());
+        after(() => hook?.(info));
+      },
+    });
   } catch (err) {
     return fail(err instanceof LedgerAuthError ? err.message : "Couldn't record that. Try again.");
   }
