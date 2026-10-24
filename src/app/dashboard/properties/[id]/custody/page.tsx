@@ -234,7 +234,10 @@ export default async function CustodyPage({
           </p>
           <p className="mt-1 text-[13px] text-mute">Generated {new Date().toISOString().replace("T", " ").slice(0, 19)} UTC</p>
         </div>
-        <div className="print:hidden">
+        <div className="flex items-center gap-3 print:hidden">
+          <a className="rounded-md border border-edge px-3 py-2 text-[13px] text-white hover:border-mint" href={`/api/properties/${property.id}/packet?stay=${stay.id}`}>
+            Download dispute packet
+          </a>
           <PrintButton />
         </div>
       </div>

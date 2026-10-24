@@ -123,6 +123,12 @@ expect_error "a timestamp cannot be deleted" "append-only" "$($P -c "delete from
 expect_error "timestamps cannot be truncated" "append-only" "$($P -c "truncate ledger_anchors;" 2>&1)"
 
 
+# Dispute packet export: the exported text forms re-hash to the stored fingerprints.
+check "export rows re-hash to the stored fingerprints" "0" "$($P -c "select count(*) from ledger_export_rows('$RA') e where encode(digest(coalesce(e.prev_hash,'') || '|' || e.nonce || '|' || '$RA' || '|' || e.seq::text || '|' || e.actor_role || '|' || e.event_type || '|' || e.payload_text || '|' || coalesce(e.frame_sha256,'') || '|' || e.created_at_text, 'sha256'), 'hex') <> e.row_hash")"
+check "owner can export their room" "t" "$(as_user $A "select count(*) > 0 from ledger_export_rows('$RA');" | last)"
+check "other owner exports nothing" "0" "$(as_user $B "select count(*) from ledger_export_rows('$RA');" | last)"
+
+
 $ADMIN -c "drop database if exists $DB" >/dev/null 2>&1 || { echo "FAIL  could not drop $DB"; fail=1; }
 [ $fail -eq 0 ] && echo "ALL PASSED"
 exit $fail
