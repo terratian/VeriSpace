@@ -25,10 +25,10 @@ function ShotGrid({ shots }: { shots: SessionShot[] }) {
           <li key={s.key}>
             <figure>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={s.url} alt={`Photo recorded as entry ${s.seq}`} className="aspect-[4/3] w-full rounded-lg border border-edge object-cover" />
+              <img src={s.url} alt={s.seq ? `Photo recorded as entry ${s.seq}` : "Photo waiting to send"} className="aspect-[4/3] w-full rounded-lg border border-edge object-cover" />
               <figcaption className="mt-1 flex items-center gap-1 font-mono text-[11px] text-mint">
                 <Check className="size-3" aria-hidden="true" />
-                Entry {s.seq}
+                {s.seq ? `Entry ${s.seq}` : "Waiting to send"}
               </figcaption>
             </figure>
           </li>

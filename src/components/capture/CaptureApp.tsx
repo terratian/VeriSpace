@@ -11,6 +11,8 @@ import { CameraSheet } from "./CameraSheet";
 import { ReviewSheet } from "./ReviewSheet";
 import { RoomList, type RoomInfo } from "./RoomList";
 import { RoomScreen, type SessionShot } from "./RoomScreen";
+import { AckCard } from "./AckCard";
+import { useOfflineQueue } from "./useOfflineQueue";
 import { useProgress } from "./useProgress";
 
 export interface CaptureAppProps {
@@ -42,8 +44,29 @@ function formatValidUntil(iso: string): string {
 
 export default function CaptureApp(props: CaptureAppProps) {
   const { token, role, rooms } = props;
-  const record = (input: EventInput) => (props.demo ? demoEvent() : sendEvent(token, input));
+  const [toast, setToast] = useState("");
+  const queue = useOfflineQueue(!props.demo, (n) => setToast(`Sent ${n} saved ${n === 1 ? "entry" : "entries"}.`));
+  // Entries without a photo are kept on the phone when there is no signal, and sent later (entry number 0 means "saved, not sent yet").
+  const record = async (input: EventInput): Promise<RecordedEvent> => {
+    if (props.demo) return demoEvent();
+    try {
+      return await sendEvent(token, input);
+    } catch (err) {
+      if (err instanceof CaptureError && err.status === 0 && !input.shot && (await queue.add(token, input))) return { id: 0, seq: 0, rowHash: "" };
+      throw err;
+    }
+  };
+  const said = (event: RecordedEvent, where: string) => (event.seq ? `Recorded as entry ${event.seq} in ${where}` : "No signal: saved on this phone, and it will send when you're back online.");
   const { progress, bump } = useProgress(props.storageId ?? token);
+  const [acked, setAcked] = useState(false);
+  const ackKey = `vs:ack:${(props.storageId ?? token).slice(-20)}`;
+  useEffect(() => {
+    try {
+      setAcked(window.localStorage.getItem(ackKey) === "1");
+    } catch {
+      /* not remembered */
+    }
+  }, [ackKey]);
 
   const [mode, setMode] = useState<Mode>("arrival");
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -51,7 +74,6 @@ export default function CaptureApp(props: CaptureAppProps) {
   const [review, setReview] = useState<{ intent: Intent; shot: Shot } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
   const [shots, setShots] = useState<Record<string, SessionShot[]>>({});
   const [validUntil, setValidUntil] = useState("");
   const [checked, setChecked] = useState<Set<string>>(() => new Set(rooms.flatMap((r) => r.doneItems)));
@@ -101,7 +123,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     try {
       const event = await record({ roomId: room.id, eventType: "checklist_item", itemId: item.id, itemLabel: item.label });
       setChecked((prev) => new Set(prev).add(item.id));
-      setToast(`Recorded as entry ${event.seq} in ${room.name}`);
+      setToast(said(event, room.name));
     } catch (err) {
       setError(err instanceof CaptureError ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -125,7 +147,29 @@ export default function CaptureApp(props: CaptureAppProps) {
     keptUrls.current.push(shot.url);
     setShots((prev) => ({ ...prev, [key]: [...(prev[key] ?? []), { key: `${event.id}`, url: shot.url, seq: event.seq }] }));
     setReview(null);
-    setToast(`Recorded as entry ${event.seq} in ${room.name}`);
+    setToast(said(event, room.name));
+  }
+
+  async function queuePhoto(input: EventInput) {
+    if (!room || !review) return;
+    if (!(await queue.add(token, input))) {
+      setError("This phone can't save it for later. Try again when you have signal.");
+      return;
+    }
+    recorded({ id: 0, seq: 0, rowHash: "" }, review.shot, review.intent);
+  }
+
+  async function acknowledge(agrees: boolean, roomIds: string[], note?: string) {
+    for (const id of roomIds) await record({ roomId: id, eventType: "condition_ack", note, extra: { agrees } });
+    if (agrees) {
+      setAcked(true);
+      try {
+        window.localStorage.setItem(ackKey, "1");
+      } catch {
+        /* not remembered */
+      }
+    }
+    setToast(agrees ? "Thanks, recorded." : "Thanks, the owner has been told.");
   }
 
   async function runEvent(eventType: string, then: () => void) {
@@ -135,7 +179,7 @@ export default function CaptureApp(props: CaptureAppProps) {
     try {
       const event = await record({ roomId: room.id, eventType });
       then();
-      setToast(`Recorded as entry ${event.seq} in ${room.name}`);
+      setToast(said(event, room.name));
     } catch (err) {
       setError(err instanceof CaptureError ? err.message : "Something went wrong. Try again.");
     } finally {
@@ -152,6 +196,27 @@ export default function CaptureApp(props: CaptureAppProps) {
         <header className="mb-8">
           <Logo className="text-[15px]" />
         </header>
+      )}
+
+      {(queue.waiting > 0 || queue.failed.length > 0) && (
+        <div role="status" className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-[13px] text-amber">
+          {queue.waiting > 0 && (
+            <p>
+              {queue.waiting} {queue.waiting === 1 ? "entry is" : "entries are"} saved on this phone and will send when you have signal.{" "}
+              <button type="button" onClick={() => void queue.flush()} disabled={queue.sending} className="underline">
+                {queue.sending ? "Sending…" : "Send now"}
+              </button>
+            </p>
+          )}
+          {queue.failed.map((f) => (
+            <p key={f.id}>
+              One saved entry couldn&apos;t be sent: {f.error}{" "}
+              <button type="button" onClick={() => void queue.discard(f.id)} className="underline">
+                Discard
+              </button>
+            </p>
+          ))}
+        </div>
       )}
 
       {props.demo && <p className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-[13px] text-amber">Demo: sample data. Nothing is saved.</p>}
@@ -246,6 +311,15 @@ export default function CaptureApp(props: CaptureAppProps) {
             </>
           )}
 
+          {role === "guest" && mode === "arrival" && rooms.length > 0 && (
+            <AckCard
+              rooms={rooms.map((r) => ({ id: r.id, name: r.name }))}
+              done={acked}
+              onConfirm={() => acknowledge(true, rooms.map((r) => r.id))}
+              onDifferent={(id, note) => acknowledge(false, [id], note)}
+            />
+          )}
+
           {role === "guest" && <GuestProcedures guide={props.guide} />}
 
           {validUntil && role !== "manager" && <p className="mt-8 text-[13px] text-mute">This link works until {validUntil}.</p>}
@@ -285,6 +359,7 @@ export default function CaptureApp(props: CaptureAppProps) {
           }}
           task={pendingTask ? { id: pendingTask.id, label: pendingTask.label } : undefined}
           onRecorded={(event, shot) => recorded(event, shot, review.intent)}
+          onQueue={props.demo ? undefined : queuePhoto}
         />
       )}
 

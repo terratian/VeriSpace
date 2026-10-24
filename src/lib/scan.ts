@@ -148,8 +148,8 @@ interface ScanEvent {
   created_at: string;
 }
 
-/** The most recent scan in a room: its frames (one per direction) and whether it was finished. */
-export function latestScan(events: ScanEvent[]): ScanSet | null {
+/** Every scan in a room, oldest first. */
+export function scanHistory(events: ScanEvent[]): ScanSet[] {
   const sets = new Map<string, ScanSet>();
   const order: string[] = [];
   for (const e of events) {
@@ -173,8 +173,12 @@ export function latestScan(events: ScanEvent[]): ScanSet | null {
       set.geo = p.geo ?? null;
     }
   }
-  // Prefer the newest finished scan; otherwise the newest partial one.
-  const all = order.map((id) => sets.get(id)!);
+  return order.map((id) => sets.get(id)!).map((set) => ({ ...set, frames: [...set.frames].sort((a, b) => a.index - b.index) }));
+}
+
+/** The most recent scan in a room: its frames (one per direction) and whether it was finished. */
+export function latestScan(events: ScanEvent[]): ScanSet | null {
+  const all = scanHistory(events);
   const finished = all.filter((s) => s.complete);
   const pick = (finished.length ? finished : all).at(-1);
   return pick ? { ...pick, frames: [...pick.frames].sort((a, b) => a.index - b.index) } : null;

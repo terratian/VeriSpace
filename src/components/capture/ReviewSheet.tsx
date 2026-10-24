@@ -4,7 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import { button, field, fieldLabel } from "@/components/ui/styles";
 import { formatBytes, type Intent, type Shot } from "@/lib/capture";
-import { CaptureError, demoEvent, sendEvent, uploadShot, type RecordedEvent } from "@/lib/captureClient";
+import { CaptureError, demoEvent, sendEvent, uploadShot, type EventInput, type RecordedEvent } from "@/lib/captureClient";
 import { Fingerprint } from "./Fingerprint";
 
 /**
@@ -21,6 +21,7 @@ export function ReviewSheet({
   onRetake,
   onCancel,
   onRecorded,
+  onQueue,
   task,
   demo = false,
 }: {
@@ -33,6 +34,8 @@ export function ReviewSheet({
   onRetake: () => void;
   onCancel: () => void;
   onRecorded: (event: RecordedEvent, shot: Shot) => void;
+  /** Keep the photo on this phone to send later. Offered when there is no signal. */
+  onQueue?: (input: EventInput) => Promise<void>;
   /** The checklist task this photo completes, when it was taken for one. */
   task?: { id: string; label: string };
   /** Public demo: record nothing, just show the flow. */
@@ -42,6 +45,7 @@ export function ReviewSheet({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const uploaded = useRef(false);
+  const [offline, setOffline] = useState(false);
 
   async function save() {
     if (intent.noteRequired && !note.trim()) {
@@ -65,6 +69,7 @@ export function ReviewSheet({
       if (err instanceof CaptureError) {
         // The ledger refused because the file isn't stored: upload it again on the next try.
         if (err.status === 409) uploaded.current = false;
+        setOffline(err.status === 0);
         setError(err.message);
       } else {
         setError("Something went wrong. Try again.");
@@ -118,6 +123,17 @@ export function ReviewSheet({
             <p role="alert" className="mt-3 rounded-lg border border-flag/40 bg-flag/10 px-3 py-2 text-sm text-flag">
               {error}
             </p>
+          )}
+
+          {offline && onQueue && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onQueue({ roomId, eventType: intent.eventType, note, shot, itemId: task?.id, itemLabel: task?.label })}
+              className={`${button("secondary", "lg")} mt-3 w-full`}
+            >
+              Save on this phone and send later
+            </button>
           )}
 
           <div className="mt-4 grid grid-cols-[auto_1fr] gap-3">

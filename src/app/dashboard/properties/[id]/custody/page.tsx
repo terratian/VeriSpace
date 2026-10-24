@@ -174,6 +174,7 @@ export default async function CustodyPage({
     if (typeof p.label === "string") parts.push(p.label);
     if (e.event_type === "feature_status" && typeof p.status === "string") parts.push(STATUS_LABELS[p.status as FeatureStatus] ?? p.status);
     if (e.event_type === "issue_resolved" && typeof p.issueId === "number") parts.push(`resolves entry ${seqOfId.get(p.issueId) ?? "?"}`);
+    if (e.event_type === "condition_ack") parts.push(p.agrees === false ? "says it is NOT as recorded" : "agreed it is as recorded", ...(typeof p.asOfSeq === "number" ? [`as of entry ${p.asOfSeq}`] : []));
     if (typeof p.note === "string" && p.note) parts.push(p.note);
     return parts.join(": ") || "";
   };

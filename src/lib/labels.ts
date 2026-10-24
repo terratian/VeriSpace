@@ -13,6 +13,7 @@ export const EVENT_LABELS: Record<string, string> = {
   issue_reported: "Reported a problem",
   issue_resolved: "Resolved a problem",
   maintenance_done: "Maintenance done",
+  condition_ack: "Confirmed the room's condition at arrival",
   tutorial_sent: "Tutorial sent",
 };
 

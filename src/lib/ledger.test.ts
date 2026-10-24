@@ -179,3 +179,22 @@ describe("co-managers", () => {
     expect(afterAppend).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("guest acknowledgment", () => {
+  const guest = { kind: "capability" as const, claims: { role: "guest" as const, propertyId: PROPERTY, reservationId: "00000000-0000-0000-0000-0000000000e1", iat: 0, exp: 9e9 } };
+  const db = () => fakeDb({ latestSeq: async () => 17 });
+  it("stamps asOfSeq itself, ignoring what the guest sends", async () => {
+    const d = db();
+    await appendLedgerEvent(d, guest as never, { roomId: ROOM, eventType: "condition_ack", payload: { agrees: true, asOfSeq: 999 } });
+    expect(d.insertEvent.mock.calls[0][0].payload).toMatchObject({ agrees: true, asOfSeq: 17 });
+  });
+  it("needs a yes or no, and a note when the answer is no", async () => {
+    await expect(appendLedgerEvent(db(), guest as never, { roomId: ROOM, eventType: "condition_ack", payload: {} })).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(db(), guest as never, { roomId: ROOM, eventType: "condition_ack", payload: { agrees: false } })).rejects.toMatchObject({ status: 422 });
+    await expect(appendLedgerEvent(db(), guest as never, { roomId: ROOM, eventType: "condition_ack", payload: { agrees: false, note: "Stain on rug" } })).resolves.toBeDefined();
+  });
+  it("is not available to crew links", async () => {
+    const crew = { kind: "capability" as const, claims: { ...guest.claims, role: "crew" as const } };
+    await expect(appendLedgerEvent(db(), crew as never, { roomId: ROOM, eventType: "condition_ack", payload: { agrees: true } })).rejects.toMatchObject({ status: 403 });
+  });
+});

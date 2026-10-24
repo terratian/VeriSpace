@@ -52,6 +52,12 @@ export function supabaseLedgerDb(client: SupabaseClient = serviceClient()): Ledg
       return !!data;
     },
 
+    async latestSeq(roomId): Promise<number | null> {
+      const { data, error } = await client.from("room_state_ledger").select("seq").eq("room_id", roomId).order("seq", { ascending: false }).limit(1);
+      if (error) throw new Error(`latest entry lookup failed: ${error.message}`);
+      return data?.[0] ? Number(data[0].seq) : null;
+    },
+
     async issueInRoom(roomId, issueId): Promise<boolean> {
       const { data, error } = await client
         .from("room_state_ledger")

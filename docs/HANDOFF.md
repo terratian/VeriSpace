@@ -118,3 +118,15 @@ Setup: run migration `20261027000000_ledger_anchors.sql` (also in `supabase/appl
 ## Dispute packet
 
 Custody page, "Download dispute packet" (`/api/properties/[id]/packet?stay=`), owner only. A zip with `ledger.json` (every entry in the exact text form that was fingerprinted, from the `ledger_export_rows` function, migration `20261028000000`), the stay's photos named by SHA-256 (up to 40, bytes re-hashed before inclusion), the signed timestamps, and `verify.mjs`, a dependency-free Node script that re-computes entry fingerprints, chain links, photo fingerprints and timestamp digests. Logic in `src/lib/packet/`; the test runs the shipped script against good and tampered packets. The packet shows what was recorded and when, not who caused damage.
+
+## Co-managers, edit log, alerts
+
+- **Co-managers:** `property_members` (by email). `can_manage_property(pid)` (owner or invited email in the JWT) backs every owner policy; owner alone can insert/delete properties and edit the manager list. Server side, `property_manager_ids` (service role) feeds `RoomRecord.managerIds`; `authorizeRoomAccess` uses `canManageRoom`. UI: Property settings > Managers (`TeamForms`, `team-actions.ts`).
+- **Edit log:** `config_audit`, filled by triggers on properties, rooms, room_content, room_checklist_items, room_features, room_resources, room_feature_pins and property_members (before/after, auth.uid(), JWT email). Append-only. Shown on the custody page and shipped in the dispute packet as `config_changes.json`. Edits made through the service role carry no actor, so owner screens must keep using the session client.
+- **Alerts:** `src/lib/alerts.ts` (Resend email, Plivo SMS) fired by `alertHook` via `after()` from `/api/ledger` and owner issue actions, for `issue_reported`, `damage_report` and a guest's `condition_ack` with `agrees:false`. Env: `RESEND_API_KEY`, `ALERT_FROM_EMAIL`, `PLIVO_AUTH_ID`, `PLIVO_AUTH_TOKEN`, `PLIVO_FROM`; contacts per property (`alert_email`, `alert_phone`), owner sign-in email by default. `/api/health` shows `alertEmail` and `alertSms`. Not exercised against the real providers.
+
+## Before/after, guest acknowledgment, offline capture
+
+- **Before/after:** `/api/scan-compare?room=` compares the newest finished scan with the one before (frames paired by look direction within 20 degrees; 16x16 brightness grids, exposure-normalized; `sharp` on the server). Shown on the scan page as "Before and after". It flags places to look, it does not detect damage.
+- **Guest acknowledgment:** guest event `condition_ack` `{agrees, note}`; the server stamps `asOfSeq` (the room's newest entry at that moment). "Yes, as shown" records one per room; "Something's different" records one in the chosen room with a required note and alerts the owner.
+- **Offline capture:** `src/lib/offlineQueue.ts` (IndexedDB). Entries without a photo queue automatically when there is no signal; photos offer "Save on this phone and send later". Queued entries carry `capturedAt` (phone clock) and `queued: true`; the ledger time is when it was received. Sent on reconnect, every 30 s, or "Send now"; rejected entries are shown with a Discard button.

@@ -44,7 +44,7 @@ export const ROLE_EVENTS: Record<"crew" | "guest", readonly string[]> = {
     "maintenance_done",
     "inspection",
   ],
-  guest: ["guest_arrival_scan", "guest_checkout_scan", "issue_reported"],
+  guest: ["guest_arrival_scan", "guest_checkout_scan", "issue_reported", "condition_ack"],
 };
 
 export interface RoomRecord {
@@ -91,6 +91,8 @@ export interface LedgerDb {
   featureInRoom?(roomId: string, featureId: string): Promise<boolean>;
   /** Whether an issue or damage report with this ledger id exists in the room. */
   issueInRoom?(roomId: string, issueId: number): Promise<boolean>;
+  /** The newest entry number in the room, stamped on a guest's acknowledgment so it says what was on record. */
+  latestSeq?(roomId: string): Promise<number | null>;
 }
 
 /** An error that maps to an HTTP status (auth failures, missing rows, rejected input). */
@@ -141,6 +143,12 @@ export function validateModelPayload(eventType: string, payload: Record<string, 
     if (typeof payload.note !== "string" || !payload.note.trim()) bad("describe the problem in a note");
     if ((payload.note as string).length > 500) bad("note is too long");
     if (payload.category !== undefined && !(ISSUE_CATEGORIES as readonly unknown[]).includes(payload.category)) bad("unknown category");
+  }
+  if (eventType === "condition_ack") {
+    if (typeof payload.agrees !== "boolean") bad("say whether the room is as shown");
+    if (payload.note !== undefined && typeof payload.note !== "string") bad("note must be text");
+    if (payload.agrees === false && !(typeof payload.note === "string" && payload.note.trim())) bad("say what is different");
+    if ((payload.note as string | undefined)?.length! > 500) bad("note is too long");
   }
   if (eventType === ISSUE_RESOLVED && !(typeof payload.issueId === "number" && Number.isInteger(payload.issueId) && payload.issueId > 0)) {
     bad("issue_resolved needs the issueId it resolves");
@@ -207,6 +215,11 @@ export async function appendLedgerEvent(
     payload.actorId = principal.userId;
   }
 
+  delete payload.asOfSeq;
+  if (input.eventType === "condition_ack" && db.latestSeq) {
+    const seq = await db.latestSeq(room.id);
+    if (seq !== null) payload.asOfSeq = seq;
+  }
   const actorRole = principal.kind === "manager" ? "manager" : principal.claims.role;
   const event = await db.insertEvent({
     roomId: room.id,

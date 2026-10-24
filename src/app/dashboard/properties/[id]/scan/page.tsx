@@ -11,7 +11,8 @@ import { describeDbError } from "@/lib/db-errors";
 import { requestOrigin } from "@/lib/origin";
 import { qrDataUrl } from "@/lib/qr";
 import { FEATURE_STATUS_EVENT, featureStatuses, stateOf } from "@/lib/model";
-import { SCAN_COMPLETE_EVENT, SCAN_FRAME_EVENT, latestScan, type Pin } from "@/lib/scan";
+import { SCAN_COMPLETE_EVENT, SCAN_FRAME_EVENT, latestScan, scanHistory, type Pin } from "@/lib/scan";
+import { ScanCompare } from "@/components/dashboard/ScanCompare";
 import { photoStoreFromEnv, storageConfigFromEnv } from "@/lib/storage";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { fmtDateTime } from "@/lib/time";
@@ -74,6 +75,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
     .order("seq")
     .limit(500);
   const scan = evRes.error ? null : latestScan((evRes.data ?? []) as Parameters<typeof latestScan>[0]);
+  const finishedScans = evRes.error ? 0 : scanHistory((evRes.data ?? []) as Parameters<typeof scanHistory>[0]).filter((x) => x.complete).length;
   const store = photoStoreFromEnv();
   const frames = scan && store
     ? await Promise.all(scan.frames.map(async (f) => ({ ...f, url: await store.signedUrl(property.id, f.sha256, 3600) })))
@@ -124,6 +126,7 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
               {scan.mode === "manual" ? " · placed in order (no direction sensors)" : ""}
               {scan.geo ? ` · at ${scan.geo.lat}, ${scan.geo.lng}${scan.geo.accuracy ? ` (±${scan.geo.accuracy} m)` : ""}` : ""}
             </p>
+            {finishedScans >= 2 && store && <ScanCompare roomId={room.id} />}
           </>
         ) : scan && !store ? (
           <p className="text-sm text-mute">This room has a scan, but photo storage isn&apos;t set up, so it can&apos;t be shown.</p>

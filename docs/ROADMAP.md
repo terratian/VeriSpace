@@ -49,3 +49,7 @@ Done and kept: ledger, links, RLS, guides, checklists, readiness, issues and cus
 - **VeriSpace Suite** (owner/manager): builds the property room by room, scans rooms, pins assets, sets required checks.
 - **VeriService** (cleaners/crew): its own task-driven flow, not a concierge. Required checks need an in-app, geofenced, time-stamped photo; skipped required checks are reported, and the owner decides pay from the completion report (the app suggests, never pays).
 - **VeriStay** (guests): a concierge: easy check-in, mid-stay check-in, checkout; tap an asset pin in the room view for help.
+
+## Gaps closed (Oct 24)
+
+Dispute packet, independent timestamps, automatic before/after for rescans, co-managers, owner edit log, guest acknowledgment, alerts (email and SMS, keys needed), offline capture queue. Still open: VeriService required checks with pay report, VeriStay concierge flow, languages, sensor ingest, PMS calendar import, scan-file upload.
