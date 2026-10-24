@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import type { ActionState } from "@/lib/action-state";
 import { describeDbError } from "@/lib/db-errors";
+import { normalizePhone } from "@/lib/phone";
 import { env } from "@/lib/env";
 import { issueLink } from "@/lib/links";
 import { requestOrigin } from "@/lib/origin";
@@ -186,12 +187,20 @@ export async function addReservation(_prev: ActionState, fd: FormData): Promise<
   const stay = resolveStay(form, property.timezone);
   if (!stay.ok) return fail(stay.error);
 
+  const phone = normalizePhone(text(fd, "guestPhone"));
+  if (!phone.ok) return fail(phone.error);
+  const guestEmail = text(fd, "guestEmail").trim().toLowerCase();
+  if (guestEmail && !z.email().safeParse(guestEmail).success) return fail("Enter a valid email address.");
+
   const { error } = await supabase.from("reservations").insert({
     property_id: property.id,
     starts_at: stay.startsAt.toISOString(),
     ends_at: stay.endsAt.toISOString(),
     guest_name: form.guestName || null,
     source: form.source,
+    // Only sent when given, so adding a stay still works before the contacts update is applied.
+    ...(phone.value ? { guest_phone: phone.value } : {}),
+    ...(guestEmail ? { guest_email: guestEmail } : {}),
   });
   if (error) {
     return fail(
@@ -216,47 +225,6 @@ export async function cancelReservation(_prev: ActionState, fd: FormData): Promi
 
   refresh();
   return { ok: true, message: "Stay removed" };
-}
-
-/** Create a crew or guest link for a stay. The caller must own the property (RLS hides other rows). */
-export async function createLink(_prev: ActionState, fd: FormData): Promise<ActionState> {
-  const parsed = z
-    .object({ reservationId: z.guid(), role: z.enum(["guest", "crew"]), label: z.string().trim().max(60, "Keep the name under 60 characters.") })
-    .safeParse({ reservationId: text(fd, "reservationId"), role: text(fd, "role"), label: text(fd, "label") });
-  if (!parsed.success) return fail("Choose guest or crew link.");
-
-  const { supabase } = await signedInClient();
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("id, property_id, starts_at, ends_at, properties(timezone)")
-    .eq("id", parsed.data.reservationId)
-    .maybeSingle();
-  if (error) return fail(describeDbError(error));
-  if (!data) return fail("Stay not found.");
-
-  let secret: string;
-  try {
-    secret = env.capabilitySecret;
-  } catch {
-    return fail("This server has no CAPABILITY_SECRET set, so it can't sign links. Add one (at least 32 characters) to the environment and restart.");
-  }
-
-  try {
-    const zone = (data.properties as unknown as { timezone: string } | null)?.timezone ?? "UTC";
-    const link = await issueLink({
-      secret,
-      origin: requestOrigin(await headers()),
-      role: parsed.data.role,
-      label: parsed.data.label,
-      stay: { id: data.id, propertyId: data.property_id, startsAt: new Date(data.starts_at), endsAt: new Date(data.ends_at) },
-    });
-    return {
-      ok: true,
-      link: { url: link.url, role: link.role, notBefore: link.notBefore.toISOString(), expiresAt: link.expiresAt.toISOString(), zone },
-    };
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : "Couldn't create the link.");
-  }
 }
 
 /** Re-computes a room's hash chain in the database (as the signed-in owner, so RLS applies). */

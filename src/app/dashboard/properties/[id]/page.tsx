@@ -11,6 +11,8 @@ import { SetupProgress } from "@/components/dashboard/SetupProgress";
 import { ReadinessPanel } from "@/components/dashboard/ReadinessPanel";
 import { DeletePropertyForm } from "@/components/dashboard/DeletePropertyForm";
 import { TeamForms, type Member } from "@/components/dashboard/TeamForms";
+import { CrewForms, type CrewRow } from "@/components/dashboard/CrewForms";
+import { maskEmail, maskPhone } from "@/lib/phone";
 import { PropertyForm } from "@/components/dashboard/PropertyForm";
 import { RoomChain } from "@/components/dashboard/RoomChain";
 import { StayRow, type StayData } from "@/components/dashboard/StayRow";
@@ -87,8 +89,8 @@ export default async function PropertyPage({ params, searchParams }: { params: P
   const tz = property.timezone as string;
   const zoneLabel = `${tz.replace(/_/g, " ")}, ${zoneAbbreviation(now, tz)}`;
 
-  const [staysRes, ledgerRes] = await Promise.all([
-    supabase.from("reservations").select("id, starts_at, ends_at, guest_name, source").eq("property_id", id).order("starts_at"),
+  const [staysFirst, ledgerRes] = await Promise.all([
+    supabase.from("reservations").select("id, starts_at, ends_at, guest_name, source, guest_phone, guest_email").eq("property_id", id).order("starts_at"),
     roomIds.length
       ? supabase
           .from("room_state_ledger")
@@ -98,6 +100,11 @@ export default async function PropertyPage({ params, searchParams }: { params: P
           .limit(300)
       : Promise.resolve({ data: [] as LedgerData[], error: null }),
   ]);
+  // Before the contacts update is applied those columns don't exist: show the stays without them.
+  const staysRes = staysFirst.error?.code === "42703" ? await supabase.from("reservations").select("id, starts_at, ends_at, guest_name, source").eq("property_id", id).order("starts_at") : staysFirst;
+  const crewRes = await supabase.from("crew_contacts").select("id, name, phone, email").eq("property_id", id).order("created_at");
+  const crewRows = ((crewRes.error ? [] : crewRes.data) ?? []) as { id: string; name: string; phone: string | null; email: string | null }[];
+  const crew: CrewRow[] = crewRows.map((c) => ({ id: c.id, name: c.name, phoneMasked: c.phone ? maskPhone(c.phone) : null, emailMasked: c.email ? maskEmail(c.email) : null }));
   if (staysRes.error) {
     return (
       <div className="py-8">
@@ -262,6 +269,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
             initial={{ name: property.name, address: property.address, timezone: tz }}
           />
           <TeamForms propertyId={property.id} isOwner={!team || team.owner_id === user.id} members={members} alertEmail={team?.alert_email ?? null} alertPhone={team?.alert_phone ?? null} />
+          <CrewForms propertyId={property.id} crew={crew} />
           {(!team || team.owner_id === user.id) && <DeletePropertyForm propertyId={property.id} name={property.name} />}
         </Panel>
       </details>
@@ -297,7 +305,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
             ) : (
               <ul className="divide-y divide-edge overflow-hidden rounded-[14px] border border-edge bg-graphite">
                 {live.map((s) => (
-                  <StayRow key={s.id} stay={s} tz={tz} now={now} />
+                  <StayRow key={s.id} stay={s} tz={tz} now={now} crew={crew} />
                 ))}
               </ul>
             )}
@@ -307,7 +315,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
                 <summary className="inline cursor-pointer text-sm text-mute hover:text-white">Past stays ({past.length})</summary>
                 <ul className="mt-3 divide-y divide-edge overflow-hidden rounded-[14px] border border-edge bg-graphite">
                   {past.map((s) => (
-                    <StayRow key={s.id} stay={s} tz={tz} now={now} />
+                    <StayRow key={s.id} stay={s} tz={tz} now={now} crew={crew} />
                   ))}
                 </ul>
               </details>

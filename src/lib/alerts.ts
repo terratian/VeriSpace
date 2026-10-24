@@ -3,7 +3,9 @@
  * through Plivo, each only when its keys are set. Nothing here ever blocks recording an entry.
  */
 
-export const E164 = /^\+[1-9]\d{7,14}$/;
+import { sendEmail, sendSms, type Delivery } from "./deliver";
+
+export { E164 } from "./phone";
 
 export interface AlertContext {
   propertyName: string;
@@ -42,7 +44,6 @@ export function alertText(c: AlertContext): { subject: string; body: string; sms
 
 type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
 type Env = Record<string, string | undefined>;
-export type Delivery = "sent" | "skipped" | "failed";
 
 export async function sendAlerts(
   c: AlertContext,
@@ -51,32 +52,8 @@ export async function sendAlerts(
   env: Env = process.env,
 ): Promise<{ email: Delivery; sms: Delivery }> {
   const text = alertText(c);
-  const result: { email: Delivery; sms: Delivery } = { email: "skipped", sms: "skipped" };
-
-  if (contacts.email && env.RESEND_API_KEY && env.ALERT_FROM_EMAIL) {
-    try {
-      const res = await fetchFn("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, "content-type": "application/json" },
-        body: JSON.stringify({ from: env.ALERT_FROM_EMAIL, to: [contacts.email], subject: text.subject, text: text.body }),
-      });
-      result.email = res.ok ? "sent" : "failed";
-    } catch {
-      result.email = "failed";
-    }
-  }
-
-  if (contacts.phone && E164.test(contacts.phone) && env.PLIVO_AUTH_ID && env.PLIVO_AUTH_TOKEN && env.PLIVO_FROM) {
-    try {
-      const res = await fetchFn(`https://api.plivo.com/v1/Account/${encodeURIComponent(env.PLIVO_AUTH_ID)}/Message/`, {
-        method: "POST",
-        headers: { authorization: `Basic ${Buffer.from(`${env.PLIVO_AUTH_ID}:${env.PLIVO_AUTH_TOKEN}`).toString("base64")}`, "content-type": "application/json" },
-        body: JSON.stringify({ src: env.PLIVO_FROM, dst: contacts.phone.replace("+", ""), text: text.sms }),
-      });
-      result.sms = res.ok ? "sent" : "failed";
-    } catch {
-      result.sms = "failed";
-    }
-  }
-  return result;
+  return {
+    email: contacts.email ? await sendEmail(contacts.email, text.subject, text.body, fetchFn, env) : "skipped",
+    sms: contacts.phone ? await sendSms(contacts.phone, text.sms, fetchFn, env) : "skipped",
+  };
 }

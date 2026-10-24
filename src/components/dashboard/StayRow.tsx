@@ -1,5 +1,6 @@
 import { cancelReservation } from "@/app/dashboard/actions";
-import { LinkMaker } from "@/components/dashboard/LinkMaker";
+import { SendLinks, type CrewOption } from "@/components/dashboard/SendLinks";
+import { maskEmail, maskPhone } from "@/lib/phone";
 import { ActionForm, SubmitButton } from "@/components/ui/ActionForm";
 import { Badge } from "@/components/ui/primitives";
 import { SOURCE_LABEL, type Source } from "@/lib/reservations";
@@ -11,6 +12,8 @@ export interface StayData {
   ends_at: string;
   guest_name: string | null;
   source: Source;
+  guest_phone?: string | null;
+  guest_email?: string | null;
 }
 
 const STATUS = {
@@ -19,7 +22,7 @@ const STATUS = {
   past: { tone: "neutral", label: "Past" },
 } as const;
 
-export function StayRow({ stay, tz, now }: { stay: StayData; tz: string; now: Date }) {
+export function StayRow({ stay, tz, now, crew = [] }: { stay: StayData; tz: string; now: Date; crew?: CrewOption[] }) {
   const status = stayStatus(now, stay.starts_at, stay.ends_at);
   const nights = nightsBetween(stay.starts_at, stay.ends_at, tz);
 
@@ -37,8 +40,19 @@ export function StayRow({ stay, tz, now }: { stay: StayData; tz: string; now: Da
         <span className="text-mute">, {nights} {nights === 1 ? "night" : "nights"}</span>
       </p>
 
-      <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-        {status !== "past" ? <LinkMaker reservationId={stay.id} /> : <span />}
+      {status !== "past" && (
+        <div className="mt-3">
+          <SendLinks
+            reservationId={stay.id}
+            guestPhone={stay.guest_phone ? maskPhone(stay.guest_phone) : null}
+            guestEmail={stay.guest_email ? maskEmail(stay.guest_email) : null}
+            guestPhoneRaw={stay.guest_phone ?? ""}
+            guestEmailRaw={stay.guest_email ?? ""}
+            crew={crew}
+          />
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-start justify-end gap-3">
         <ActionForm action={cancelReservation} resetOnSuccess={false}>
           <input type="hidden" name="reservationId" value={stay.id} />
           <SubmitButton

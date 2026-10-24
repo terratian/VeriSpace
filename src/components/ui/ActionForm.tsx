@@ -78,9 +78,12 @@ export function SubmitButton({
   name,
   value,
   confirm,
+  disabled = false,
 }: {
   children: ReactNode;
   pendingLabel?: string;
+  /** Disable regardless of pending state. */
+  disabled?: boolean;
   variant?: ButtonVariant;
   size?: ButtonSize;
   className?: string;
@@ -95,7 +98,7 @@ export function SubmitButton({
       type="submit"
       name={name}
       value={value}
-      disabled={pending}
+      disabled={pending || disabled}
       onClick={confirm ? (e) => { if (!window.confirm(confirm)) e.preventDefault(); } : undefined}
       className={`${button(variant, size)} ${className}`}
     >

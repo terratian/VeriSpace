@@ -18,6 +18,18 @@ export function AddStayForm({ propertyId, zoneLabel }: { propertyId: string; zon
         <input id={`${uid}-guest`} name="guestName" maxLength={120} autoComplete="off" placeholder="Jo Smith" className={field} />
       </div>
       <div>
+        <label htmlFor={`${uid}-phone`} className={fieldLabel}>
+          Guest phone (for the stay guide text)
+        </label>
+        <input id={`${uid}-phone`} name="guestPhone" type="tel" autoComplete="off" placeholder="+15551234567" className={field} />
+      </div>
+      <div>
+        <label htmlFor={`${uid}-email`} className={fieldLabel}>
+          Guest email (fallback)
+        </label>
+        <input id={`${uid}-email`} name="guestEmail" type="email" autoComplete="off" className={field} />
+      </div>
+      <div>
         <label htmlFor={`${uid}-source`} className={fieldLabel}>
           Booked through
         </label>

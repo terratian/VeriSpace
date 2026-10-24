@@ -160,6 +160,30 @@ expect_error "the edit log cannot be changed" "append-only" "$($P -c "update con
 expect_error "the edit log cannot be deleted from" "append-only" "$($P -c "delete from config_audit;" 2>&1)"
 
 
+# Link delivery: crew contacts, stay contacts, and the send log.
+as_user $A "insert into crew_contacts(property_id,name,phone) values ('$PA','Rosa','+15551234567');" >/dev/null
+check "manager can add a crew contact" "1" "$($P -c "select count(*) from crew_contacts where property_id='$PA'")"
+as_user $C "insert into crew_contacts(property_id,name,phone) values ('$PA','Intruder','+15550000000');" >/dev/null 2>&1
+check "a stranger cannot add crew to someone else's property" "1" "$($P -c "select count(*) from crew_contacts where property_id='$PA'")"
+check "a stranger cannot see the crew list" "0" "$(as_user $C "select count(*) from crew_contacts;" | last)"
+expect_error "a crew contact needs a phone or an email" "check" "$(as_user $A "insert into crew_contacts(property_id,name) values ('$PA','Nobody');")"
+expect_error "a malformed phone is rejected" "check" "$(as_user $A "insert into crew_contacts(property_id,name,phone) values ('$PA','Bad','555-1234');")"
+RES=00000000-0000-0000-0000-0000000000e1
+$P -c "insert into reservations(id,property_id,starts_at,ends_at) values ('$RES','$PA','2030-01-01 15:00+00','2030-01-04 11:00+00') on conflict do nothing" >/dev/null
+if [ -n "$RES" ]; then
+  as_user $A "update reservations set guest_phone='+15559876543', guest_email='guest@example.com' where id='$RES';" >/dev/null
+  check "owner can store the guest's phone and email on a stay" "+15559876543" "$($P -c "select guest_phone from reservations where id='$RES'")"
+  expect_error "a stay's phone must be international digits" "check" "$(as_user $A "update reservations set guest_phone='12345' where id='$RES';")"
+fi
+as_user $A "insert into link_deliveries(property_id,reservation_id,role,channel,to_masked,status,sent_by) values ('$PA','${RES:-$PA}','guest','sms','•••• 6543','sent','$A');" >/dev/null
+check "a send is logged" "1" "$($P -c "select count(*) from link_deliveries where property_id='$PA'")"
+as_user $C "insert into link_deliveries(property_id,reservation_id,role,channel,to_masked,status,sent_by) values ('$PA','$PA','guest','sms','x','sent','$C');" >/dev/null 2>&1
+check "a stranger cannot write to the send log" "1" "$($P -c "select count(*) from link_deliveries where property_id='$PA'")"
+expect_error "the send log cannot be changed" "append-only" "$($P -c "update link_deliveries set status='failed';" 2>&1)"
+expect_error "the send log cannot be deleted from" "append-only" "$($P -c "delete from link_deliveries;" 2>&1)"
+check "crew list changes are in the edit log" "t" "$($P -c "select count(*) > 0 from config_audit where table_name='crew_contacts' and op='INSERT'")"
+
+
 $ADMIN -c "drop database if exists $DB" >/dev/null 2>&1 || { echo "FAIL  could not drop $DB"; fail=1; }
 [ $fail -eq 0 ] && echo "ALL PASSED"
 exit $fail

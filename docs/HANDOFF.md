@@ -135,3 +135,9 @@ Custody page, "Download dispute packet" (`/api/properties/[id]/packet?stay=`), o
 
 - **Three flows, three components:** owners work in the dashboard (VeriSpace Suite); crew links open `ServiceHome` (VeriService: start room, one task at a time, closing photo, finish, next room); guest links open `ConciergeHome` (VeriStay: check in, during stay, check out). `CaptureApp` dispatches by role and still owns the camera, upload, offline queue and ledger calls.
 - **Pricing:** public `/pricing`, a pricing section on the landing page, and `/dashboard/billing` (per-property breakdown, free window, monthly total). All read `src/lib/billing.ts`; `billing.pages.test.ts` keeps the worked examples honest. Nothing is charged yet; payment provider is Stripe (see `docs/PRICING.md`).
+
+## How guests and crew get their links
+
+Links are never shown or copyable. From a stay in the dashboard the owner presses **Text** (to the phone on the booking, stored as +E.164 in `reservations.guest_phone`) or, as the fallback, **Email instead** (`guest_email`, the email of record). Crew work the same way from a per-property crew list (`crew_contacts`, added in Property settings). The server action `sendLink` (`src/app/dashboard/link-actions.ts`) signs the link, sends it through Plivo (SMS) or Resend (email) from `src/lib/deliver.ts`, and logs the send (masked address, status, who sent it) in the append-only `link_deliveries` table. `/api/guest-links` now returns 410. Needs `PLIVO_*` and `RESEND_API_KEY`/`ALERT_FROM_EMAIL`; without them the buttons say what is missing. Migration `20261030000000_link_delivery.sql` (also in `supabase/apply-pending.sql`).
+
+Not built yet: sending automatically at check-in time (needs a scheduler finer than the daily cron), a code the guest must enter to prove they hold the phone, and delivery receipts from Plivo.
