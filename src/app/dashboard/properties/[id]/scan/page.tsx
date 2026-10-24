@@ -136,14 +136,11 @@ export default async function ScanPage({ params, searchParams }: { params: Promi
       </section>
 
       <Panel className="mt-8 p-5">
-        <details className="mb-5 max-w-[560px]">
-          <summary className="cursor-pointer text-sm text-mint hover:underline">On a computer? Open this on your phone</summary>
-          <div className="mt-3 flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qr} alt={`QR code that opens the ${room.name} scan on a phone`} width={160} height={160} className="rounded-lg" />
-            <p className="max-w-[32ch] text-sm text-ash">Point your phone&apos;s camera at the code. It opens the scan for {room.name}. Sign in if it asks, then tap Start scan.</p>
-          </div>
-        </details>
+        <div className="mb-5 flex max-w-[560px] items-center gap-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qr} alt={`QR code that opens the ${room.name} scan on a phone`} width={140} height={140} className="rounded-lg" />
+          <p className="max-w-[32ch] text-sm text-ash">On a computer? Point your phone&apos;s camera at this code. It opens the scan for {room.name}. Sign in if it asks, then tap Start scan.</p>
+        </div>
         <ScanCapture key={room.id} roomId={room.id} roomName={room.name} token={session.access_token} />
         {storageConfigFromEnv() === null && (
           <p className="mt-4 text-sm text-amber">Photo storage isn&apos;t set up yet. Scans need it to be sealed.</p>

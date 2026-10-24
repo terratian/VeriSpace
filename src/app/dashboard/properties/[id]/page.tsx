@@ -1,3 +1,4 @@
+import { PhoneQr } from "@/components/dashboard/PhoneQr";
 import { Box, FileText, ListChecks, Plus } from "lucide-react";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -45,8 +46,9 @@ interface LedgerData {
   frame_sha256: string | null;
 }
 
-export default async function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PropertyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ settings?: string }> }) {
   const { id } = await params;
+  const { settings } = await searchParams;
   if (!z.guid().safeParse(id).success) notFound();
 
   const supabase = createSessionClient(await cookies());
@@ -221,6 +223,9 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </div>
         <div className="flex items-center gap-2">
           <Badge>{zoneLabel}</Badge>
+          <a href="?settings=1#settings" className={button("secondary", "sm")}>
+            Settings and remove
+          </a>
           <a href={`/dashboard/properties/${property.id}/guide`} className={button("secondary", "sm")}>
             <ListChecks className="size-4" aria-hidden="true" />
             Set up guide
@@ -245,8 +250,10 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         />
       )}
 
-      <details className="mt-4">
-        <summary className="inline cursor-pointer text-sm text-mute hover:text-white">Property settings</summary>
+      <PhoneQr path={`/dashboard/properties/${property.id}/walk`} title="the walkthrough" />
+
+      <details id="settings" className="mt-4" open={settings === "1" || undefined}>
+        <summary className="inline cursor-pointer text-sm text-mint hover:underline">Property settings: rename, managers, alerts, remove property</summary>
         <Panel className="mt-3 p-5">
           <PropertyForm
             action={updateProperty}

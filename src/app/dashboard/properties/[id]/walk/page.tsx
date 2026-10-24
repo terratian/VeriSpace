@@ -1,3 +1,4 @@
+import { PhoneQr } from "@/components/dashboard/PhoneQr";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -97,6 +98,7 @@ export default async function WalkPage({ params }: { params: Promise<{ id: strin
           { label: "Walkthrough" },
         ]}
       />
+      <PhoneQr path={`/dashboard/properties/${property.id}/walk`} title="the walkthrough" />
       <CaptureApp
         embedded
         token={session.access_token}

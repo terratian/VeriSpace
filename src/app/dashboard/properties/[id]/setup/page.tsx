@@ -1,3 +1,4 @@
+import { PhoneQr } from "@/components/dashboard/PhoneQr";
 import { Camera, Check } from "lucide-react";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -184,6 +185,10 @@ export default async function SetupPage({
           Build {property.name} room by room. The record of each room becomes the listing guests see, so a feature that is out of service shows as out of service.
         </p>
       </header>
+
+      <PhoneQr path={`${base}/walk`} title="the room-by-room walkthrough">
+        Add rooms here, then scan this to photograph each one with your phone. Sign in if it asks.
+      </PhoneQr>
 
       <nav aria-label="Setup steps" className="mt-6">
         <ol className="flex flex-wrap gap-2">
