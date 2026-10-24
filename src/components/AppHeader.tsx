@@ -14,6 +14,9 @@ export default function AppHeader({ email }: { email: string }) {
           <Link href="/dashboard" className="rounded-md px-3 py-1.5 text-white hover:bg-white/5">
             Properties
           </Link>
+          <Link href="/dashboard/billing" className="rounded-md px-3 py-1.5 text-mute hover:bg-white/5 hover:text-white">
+            Billing
+          </Link>
         </nav>
         <div className="ml-auto flex items-center gap-3">
           <ThemeToggle />

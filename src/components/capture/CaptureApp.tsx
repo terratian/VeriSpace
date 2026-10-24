@@ -14,6 +14,7 @@ import { RoomList, type RoomInfo } from "./RoomList";
 import { RoomScreen, type SessionShot } from "./RoomScreen";
 import { AckCard } from "./AckCard";
 import { ConciergeHome } from "./ConciergeHome";
+import { ServiceHome } from "./ServiceHome";
 import { RoomLookAround } from "./RoomLookAround";
 import { stageFor, type Stage } from "@/lib/concierge";
 import { useOfflineQueue } from "./useOfflineQueue";
@@ -256,7 +257,39 @@ export default function CaptureApp(props: CaptureAppProps) {
 
       {props.demo && <p className="mb-4 rounded-lg border border-amber/40 bg-amber/10 px-3 py-2 text-[13px] text-amber">Demo: sample data. Nothing is saved.</p>}
 
-      {room ? (
+      {role === "crew" ? (
+        <ServiceHome
+          propertyName={props.propertyName}
+          rooms={rooms}
+          room={room}
+          progressOf={progressOf}
+          done={checked}
+          busy={busy}
+          busyTask={busyTask}
+          error={error}
+          onOpen={open}
+          onStart={() => runEvent("clean_start", () => bump(keyFor(room?.id ?? ""), "start"))}
+          onFinish={() =>
+            runEvent("clean_end", () => {
+              if (room) bump(keyFor(room.id), "finish");
+            })
+          }
+          onTask={tick}
+          onPhoto={() => {
+            setPendingTask(null);
+            setCamera(photoIntent);
+          }}
+          onDamage={() => {
+            setPendingTask(null);
+            setCamera(INTENTS.crewDamage);
+          }}
+          onIssue={() => {
+            setPendingTask(null);
+            setIssueFeature(null);
+            setCamera(INTENTS.issue);
+          }}
+        />
+      ) : room ? (
         <RoomScreen
           role={role}
           room={room}
@@ -327,7 +360,7 @@ export default function CaptureApp(props: CaptureAppProps) {
           <h1 className="text-[28px] font-semibold leading-tight">
             {props.propertyName}
           </h1>
-          <p className="mt-1 text-mute">{role === "crew" ? "Turnover checklist" : "Baseline walkthrough"}</p>
+          <p className="mt-1 text-mute">Baseline walkthrough</p>
 
           {rooms.length === 0 ? (
             <div className="mt-8">
@@ -337,7 +370,7 @@ export default function CaptureApp(props: CaptureAppProps) {
             <>
               <div className="mt-6" aria-live="polite">
                 <p className="text-[13px] text-ash">
-                  {doneCount} of {rooms.length} {rooms.length === 1 ? "room" : "rooms"} {role === "crew" ? "done" : "photographed"}
+                  {doneCount} of {rooms.length} {rooms.length === 1 ? "room" : "rooms"} photographed
                 </p>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-edge" role="presentation">
                   <div className="h-full rounded-full bg-mint transition-[width] duration-300" style={{ width: `${percent}%` }} />
@@ -347,7 +380,7 @@ export default function CaptureApp(props: CaptureAppProps) {
                 <RoomList
                   rooms={rooms}
                   statusFor={(r) =>
-                    role === "crew" ? crewStatus(progressOf(r.id), tasksOf(r)) : baselineStatus(progressOf(r.id), tasksOf(r))
+                    baselineStatus(progressOf(r.id), tasksOf(r))
                   }
                   onOpen={open}
                 />

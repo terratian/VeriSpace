@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createSessionClient } from "@/lib/supabase/ssr-server";
 import { Badge, Logo, Panel } from "@/components/ui/primitives";
 import { button } from "@/components/ui/styles";
+import { PricingHeadline, PricingTable } from "@/components/PricingBreakdown";
 
 const EXAMPLE_ROWS = [
   { time: "10:51 AM", who: "Guest", what: "Departure photo", hash: "9f3a…c71e" },
@@ -40,20 +41,30 @@ function RoomTwin() {
   );
 }
 
-const STEPS = [
+const MODULE_CARDS = [
   {
-    title: "VeriService walks your crew through it",
-    body: "After a turnover, cleaners open a link on their phone and photograph each room before they finish it. There is nothing to install and no account to make.",
+    who: "Owners and managers",
+    module: "VeriSpace Suite",
+    line: "Set up once. Know the state of every room.",
+    steps: ["Add each room with a panorama or scan", "Photograph appliances and supplies, attach guides and manuals", "Set the rules and the checks your crew must complete", "Get alerts, before and after comparisons and dispute packets"],
+    opens: "On your computer or phone",
   },
   {
-    title: "VeriStay looks after your guests",
-    body: "A link tied to the reservation is a concierge for check-in, the stay and checkout. Guests find help for what is in the room, and record how they found it.",
+    who: "Flip crew",
+    module: "VeriService",
+    line: "Step by step, with proof.",
+    steps: ["Open a link. No app, no account", "One task at a time, in the order you set", "A photo where you asked for one", "Finish the room, go to the next"],
+    opens: "A link on their phone",
   },
   {
-    title: "VeriSpace Suite keeps the record",
-    body: "You set up each room once. Every entry after that is chained to the one before it and independently time-stamped, so changing or removing anything later shows.",
+    who: "Guests",
+    module: "VeriStay",
+    line: "Your stay, looked after.",
+    steps: ["Check in: how to get in, the house rules, a look around", "During the stay: tap a pin in the room for help with the hot tub, TV or oven", "Report a problem in a tap", "Check out: what to do, then done"],
+    opens: "A link tied to the reservation",
   },
 ];
+
 
 /** Whether a manager is already signed in, so the page can lead straight back to their dashboard. */
 async function signedIn(): Promise<boolean> {
@@ -71,9 +82,14 @@ export default async function Home() {
     <div className="min-h-dvh">
       <header className="mx-auto flex h-16 max-w-[1120px] items-center justify-between px-4 sm:px-6">
         <Logo />
-        <Link href={manager ? "/dashboard" : "/login"} className={button("secondary", "sm")}>
-          {manager ? "Open dashboard" : "Manager sign-in"}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/pricing" className={button("ghost", "sm")}>
+            Pricing
+          </Link>
+          <Link href={manager ? "/dashboard" : "/login"} className={button("secondary", "sm")}>
+            {manager ? "Open dashboard" : "Manager sign-in"}
+          </Link>
+        </div>
       </header>
 
       <main>
@@ -135,15 +151,41 @@ export default async function Home() {
 
         <section id="how" className="border-t border-edge">
           <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6">
-            <h2 className="max-w-[24ch] text-3xl font-semibold">Three people, one record</h2>
-            <div className="mt-10 grid gap-x-12 gap-y-8 md:grid-cols-3">
-              {STEPS.map((step) => (
-                <div key={step.title} className="border-t border-edge pt-5">
-                  <h3 className="text-[17px] font-semibold">{step.title}</h3>
-                  <p className="mt-2 max-w-[40ch] text-[15px] leading-relaxed text-mute">{step.body}</p>
-                </div>
+            <h2 className="max-w-[26ch] text-3xl font-semibold">One record. One platform. Everyone who touches the property.</h2>
+            <p className="mt-3 max-w-[60ch] text-[17px] text-ash">The owner, the crew and the guests each get their own screens and their own flow, built from what you set up once and written to the same record.</p>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              {MODULE_CARDS.map((c) => (
+                <Panel key={c.module} className="flex flex-col p-5">
+                  <p className="text-[13px] font-medium uppercase tracking-wide text-mute">{c.who}</p>
+                  <h3 className="mt-1 text-xl font-semibold">{c.module}</h3>
+                  <p className="mt-1 text-[15px] text-mint">{c.line}</p>
+                  <ol className="mt-4 flex-1 space-y-2.5 text-[15px] leading-snug text-ash">
+                    {c.steps.map((st, i) => (
+                      <li key={st} className="flex gap-3">
+                        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-edge text-[11px] text-mute">{i + 1}</span>
+                        {st}
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-5 border-t border-edge pt-3 text-[13px] text-mute">{c.opens}</p>
+                </Panel>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section id="pricing" className="border-t border-edge">
+          <div className="mx-auto max-w-[1120px] px-4 py-16 sm:px-6">
+            <h2 className="text-3xl font-semibold">Simple pricing</h2>
+            <div className="mt-6">
+              <PricingHeadline />
+            </div>
+            <div className="mt-8 max-w-[860px]">
+              <PricingTable />
+            </div>
+            <Link href="/pricing" className={`${button("secondary", "md")} mt-6`}>
+              See what is included
+            </Link>
           </div>
         </section>
       </main>
